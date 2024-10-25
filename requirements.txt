@@ -1,0 +1,10 @@
+transformers==4.33.1
+accelerate==0.23.0
+diffusers==0.22.0
+huggingface_hub<0.26.0
+gradio==4.8.0
+pyyaml
+pygame
+opencv-python
+info-nce-pytorch
+kornia
