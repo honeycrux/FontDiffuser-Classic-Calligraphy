@@ -62,12 +62,19 @@ class FontDiffuserDPMPipeline():
 
         cond = []
         cond.append(content_images)     #content image list
+
+        for i in range(5){
+            ....
+        }
+
+        #take average to get the style image
+        style_images = torch.mean(torch.stack(style_images),dim=0)
         cond.append(style_images)       #style image list
 
         # 1. Define the conditional and unconditional conditions    
         uncond = []
         uncond_content_images = torch.ones_like(content_images).to(self.model.device)
-        uncond_style_images = torch.ones_like(style_images[0]).to(self.model.device)
+        uncond_style_images = torch.ones_like(style_images).to(self.model.device)
         uncond.append(uncond_content_images)
         uncond.append(uncond_style_images)
 
