@@ -21,7 +21,7 @@ def run_fontdiffuer(source_image,
         args=args,
         pipe=pipe,
         content_image=source_image,
-        style_image=reference_image)
+        style_images=reference_image)
     return out_image
 
 

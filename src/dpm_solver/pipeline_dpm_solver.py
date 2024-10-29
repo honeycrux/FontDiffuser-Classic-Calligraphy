@@ -42,7 +42,7 @@ class FontDiffuserDPMPipeline():
     def generate(
         self,
         content_images,
-        style_images,
+        style_images,       #style image list
         batch_size,
         order,
         num_inference_step,
@@ -61,12 +61,13 @@ class FontDiffuserDPMPipeline():
         model_kwargs["content_encoder_downsample_size"] = content_encoder_downsample_size
 
         cond = []
-        cond.append(content_images)
-        cond.append(style_images)
+        cond.append(content_images)     #content image list
+        cond.append(style_images)       #style image list
 
+        # 1. Define the conditional and unconditional conditions    
         uncond = []
         uncond_content_images = torch.ones_like(content_images).to(self.model.device)
-        uncond_style_images = torch.ones_like(style_images).to(self.model.device)
+        uncond_style_images = torch.ones_like(style_images[0]).to(self.model.device)
         uncond.append(uncond_content_images)
         uncond.append(uncond_style_images)
 

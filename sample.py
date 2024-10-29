@@ -4,6 +4,7 @@ import time
 import random
 import numpy as np
 from PIL import Image
+from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
@@ -26,19 +27,19 @@ from utils import (ttf2im,
 def arg_parse():
     from configs.fontdiffuser import get_parser
 
-    parser = get_parser()
-    parser.add_argument("--ckpt_dir", type=str, default=None)
-    parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--controlnet", type=bool, default=False, 
-                        help="If in demo mode, the controlnet can be added.")
-    parser.add_argument("--character_input", action="store_true")
-    parser.add_argument("--content_character", type=str, default=None)
-    parser.add_argument("--content_image_path", type=str, default=None)
-    parser.add_argument("--style_image_path", type=str, default=None)
-    parser.add_argument("--save_image", action="store_true")
-    parser.add_argument("--save_image_dir", type=str, default=None,
+    parser = get_parser()   # Get the parser
+    parser.add_argument("--ckpt_dir", type=str, default=None)   # The checkpoint directory
+    parser.add_argument("--demo", action="store_true")          # If in demo mode
+    parser.add_argument("--controlnet", type=bool, default=False,   # If use controlnet
+                        help="If in demo mode, the controlnet can be added.")   # If in demo mode, the instructpix2pix can be added.
+    parser.add_argument("--character_input", action="store_true")   # If the input is character
+    parser.add_argument("--content_character", type=str, default=None)      # The content character
+    parser.add_argument("--content_image_path", type=str, default=None)     # The content image path
+    parser.add_argument("--style_image_path", type=str, default=None)       # The style image path
+    parser.add_argument("--save_image", action="store_true")        # If save the image
+    parser.add_argument("--save_image_dir", type=str, default=None,         # The saving directory
                         help="The saving directory.")
-    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--device", type=str, default="cuda:0")             # The device(CPU or GPU)
     parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")
     args = parser.parse_args()
     style_image_size = args.style_image_size
@@ -49,22 +50,27 @@ def arg_parse():
     return args
 
 
-def image_process(args, content_image=None, style_image=None):
-    if not args.demo:
+def image_process(args, content_image=None, style_images=None):
+    if not args.demo:       # If not in demo mode
         # Read content image and style image
-        if args.character_input:
+        if args.character_input:    # If the input is character
             assert args.content_character is not None, "The content_character should not be None."
             if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):
                 return None, None
             font = load_ttf(ttf_path=args.ttf_path)
             content_image = ttf2im(font=font, char=args.content_character)
             content_image_pil = content_image.copy()
-        else:
+        else:                       # If the input is image
             content_image = Image.open(args.content_image_path).convert('RGB')
             content_image_pil = None
-        style_image = Image.open(args.style_image_path).convert('RGB')
-    else:
-        assert style_image is not None, "The style image should not be None."
+        style_images_dir = Path(args.style_image_path)
+        style_images = []
+        for style_image_path in style_images_dir.iterdir():
+            if style_image_path.is_file():
+                style_images.append(Image.open(style_image_path).convert('RGB'))
+        # style_images = Image.open(args.style_image_path).convert('RGB')
+    else:                   # If in demo mode
+        assert style_images is not None, "The style image should not be None."
         if args.character_input:
             assert args.content_character is not None, "The content_character should not be None."
             if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):
@@ -77,19 +83,25 @@ def image_process(args, content_image=None, style_image=None):
         
     ## Dataset transform
     content_inference_transforms = transforms.Compose(
+        # Resize the image to the target size
         [transforms.Resize(args.content_image_size, \
                             interpolation=transforms.InterpolationMode.BILINEAR),
+                            # Convert the image to a PyTorch tensor
             transforms.ToTensor(),
+            # Normalize the image
             transforms.Normalize([0.5], [0.5])])
+    # Style image transform
     style_inference_transforms = transforms.Compose(
         [transforms.Resize(args.style_image_size, \
                            interpolation=transforms.InterpolationMode.BILINEAR),
          transforms.ToTensor(),
          transforms.Normalize([0.5], [0.5])])
+    # Apply the transform to the content image
     content_image = content_inference_transforms(content_image)[None, :]
-    style_image = style_inference_transforms(style_image)[None, :]
+    # Apply the transform to the style image
+    style_images = [style_inference_transforms(style_image)[None, :] for style_image in style_images]
 
-    return content_image, style_image, content_image_pil
+    return content_image, style_images, content_image_pil
 
 def load_fontdiffuer_pipeline(args):
     # Load the model state_dict
@@ -123,18 +135,18 @@ def load_fontdiffuer_pipeline(args):
     return pipe
 
 
-def sampling(args, pipe, content_image=None, style_image=None):
-    if not args.demo:
+def sampling(args, pipe, content_image=None, style_images=None):
+    if not args.demo:   # If not in demo mode
         os.makedirs(args.save_image_dir, exist_ok=True)
         # saving sampling config
         save_args_to_yaml(args=args, output_file=f"{args.save_image_dir}/sampling_config.yaml")
-
+    # Set the seed
     if args.seed:
         set_seed(seed=args.seed)
     
-    content_image, style_image, content_image_pil = image_process(args=args, 
+    content_image, style_images, content_image_pil = image_process(args=args, 
                                                                   content_image=content_image, 
-                                                                  style_image=style_image)
+                                                                  style_images=style_images)
     if content_image == None:
         print(f"The content_character you provided is not in the ttf. \
                 Please change the content_character or you can change the ttf.")
@@ -142,12 +154,13 @@ def sampling(args, pipe, content_image=None, style_image=None):
 
     with torch.no_grad():
         content_image = content_image.to(args.device)
-        style_image = style_image.to(args.device)
+        style_images = [style_image.to(args.device) for style_image in style_images]
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
+        # Generate the image
         images = pipe.generate(
             content_images=content_image,
-            style_images=style_image,
+            style_images=style_images,
             batch_size=1,
             order=args.order,
             num_inference_step=args.num_inference_steps,

@@ -318,9 +318,9 @@ class StyleEncoder(ModelMixin, ConfigMixin):
     @register_to_config
     def __init__(
         self, 
-        G_ch=64, 
-        G_wide=True, 
-        resolution=128,
+        G_ch=64,                #generator channel
+        G_wide=True,            #use generator wide
+        resolution=128,         #
         G_kernel_size=3, 
         G_attn='64_32_16_8', 
         n_classes=1000,

@@ -33,7 +33,7 @@ def run_fontdiffuer(content_image_path,
         args=args,
         pipe=pipe,
         content_image=content_image_path,
-        style_image=style_image_path)
+        style_images=style_image_path)
     return out_image
 
 if __name__ == '__main__':
@@ -44,7 +44,8 @@ if __name__ == '__main__':
     args.method = 'multistep'
     args.guidance_type = 'classifier-free'
     args.algorithm_type = 'dpmsolver++'
-
+    args.device = "cpu"
+    args.style_image_path = "./data_examples/style_images"
     # load fontdiffuer pipeline
     pipe = load_fontdiffuer_pipeline(args=args)
 
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     total_time = 0
     total_sample = 0
 
-    no_existence_check = True
+    no_existence_check = False      # set to True to skip the existence check
 
     for i, character in enumerate(characters):
         if not no_existence_check and os.path.exists(f'outputs/{character}.png'):
@@ -62,7 +63,7 @@ if __name__ == '__main__':
             start_time = time.time()
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/sampling/02348.png',
+                                        style_image_path='data_examples/sampling',
                                         save_image_dir='outputs/',
                                         sampling_step=20,
                                         guidance_scale=30,

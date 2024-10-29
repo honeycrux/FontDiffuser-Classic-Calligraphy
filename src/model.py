@@ -6,7 +6,7 @@ from diffusers import ModelMixin
 from diffusers.configuration_utils import (ConfigMixin, 
                                            register_to_config)
 
-class FontDiffuserModel(ModelMixin, ConfigMixin):
+class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel is a class which is inherited from ModelMixin and ConfigMixin
     """Forward function for FontDiffuer with content encoder \
         style encoder and unet.
     """
@@ -18,11 +18,17 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         style_encoder,
         content_encoder,
     ):
-        super().__init__()
-        self.unet = unet
-        self.style_encoder = style_encoder
+        super().__init__()                      #initialization by ModelMixin
+        self.unet = unet                        #unet is the model
+        self.style_encoder = style_encoder      #style_encoder is the model
         self.content_encoder = content_encoder
     
+    # def takeavg(self, style_img_feature,batch_size,channel,height,width,style_hidden_states):
+    #         #take average of the style image feature
+    #         avg_style_img_feature = style_img_feature.mean(dim=(2, 3))
+    #         avg_style_hidden_states = avg_style_img_feature.unsqueeze(1).repeat(1, height*width, 1)
+    #     return 
+
     def forward(
         self, 
         x_t, 
@@ -31,10 +37,29 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         content_images,
         content_encoder_downsample_size,
     ):
-        style_img_feature, _, _ = self.style_encoder(style_images)
-    
-        batch_size, channel, height, width = style_img_feature.shape
-        style_hidden_states = style_img_feature.permute(0, 2, 3, 1).reshape(batch_size, height*width, channel)
+        
+        # #get the 5 style images
+        style_img_feature = []
+        batch_size = []
+        channel = []
+        height = []
+        width = []
+        style_hidden_states = []
+        for i in range(5):
+            style_img_feature[i], _, _ = self.style_encoder(style_images[i])
+            #obtain the batch size, channel, height and width of the style image feature
+            batch_size[i], channel[i], height[i], width[i] = style_img_feature[i].shape
+            #permute the style image feature, the new shape of the tensor is (batch_size, height, width, channel)
+            style_hidden_states[i] = style_img_feature[i].permute(0, 2, 3, 1).reshape(batch_size[i], height[i]*width[i], channel[i])
+
+
+
+        # # Get the style feature
+        # style_img_feature, _, _ = self.style_encoder(style_images)
+        # #obtain the batch size, channel, height and width of the style image feature
+        # batch_size, channel, height, width = style_img_feature.shape
+        # #permute the style image feature, the new shape of the tensor is (batch_size, height, width, channel)
+        # style_hidden_states = style_img_feature.permute(0, 2, 3, 1).reshape(batch_size, height*width, channel)
     
         # Get the content feature
         content_img_feature, content_residual_features = self.content_encoder(content_images)

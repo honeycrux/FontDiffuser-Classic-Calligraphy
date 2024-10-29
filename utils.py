@@ -32,10 +32,10 @@ def save_image_with_content_style(save_dir, image, content_image_pil, content_im
         content_image = content_image_pil
     else:
         content_image = Image.open(content_image_path).convert("RGB").resize((resolution, resolution), Image.BILINEAR)
-    style_image = Image.open(style_image_path).convert("RGB").resize((resolution, resolution), Image.BILINEAR)
+    # style_image = Image.open(style_image_path).convert("RGB").resize((resolution, resolution), Image.BILINEAR)
 
     new_image.paste(content_image, (0, 0))
-    new_image.paste(style_image, (resolution, 0))
+    # new_image.paste(style_image, (resolution, 0))
     new_image.paste(image, (resolution*2, 0))
 
     save_path = f"{save_dir}/out_with_cs.jpg"
