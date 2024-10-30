@@ -135,9 +135,20 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             con_res_feature.append(con_feature)
             style_content_res_features.append(con_res_feature)
         
-        style_content_res_features = torch.mean(torch.stack([torch.stack(features, dim=0) for features in style_content_res_features]), dim=0)
+        #style_content_res_features[i][j], i is the index of different style images, j is the index of different fs with the same style image
+        #find the average of different style images with the same fs (different i, same j)
+        average_features = []
+        for i in range(len(style_content_res_features[0])):
+            fsi = [fs[i] for fs in style_content_res_features]
+            average_features.append(torch.mean(torch.stack(fsi), dim=0))
+        
+        # for features_at_j in (style_content_res_features):
+        #     average_features.append(torch.mean(torch.stack(features_at_j), dim=0))
 
-        style_images_feature = torch.mean(style_images_feature, dim=0)
+
+        # style_content_res_features = torch.mean(torch.stack([torch.stack(features, dim=0) for features in style_content_res_features]), dim=0)
+
+        style_content_res_features = average_features
         # style_content_feature, style_content_res_features = self.content_encoder(style_images)
         # style_content_res_features.append(style_content_feature)
 
