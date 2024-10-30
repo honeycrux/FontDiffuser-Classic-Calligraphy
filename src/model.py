@@ -91,8 +91,8 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
     def __init__(
         self, 
         unet, 
-        style_encoder,
-        content_encoder,
+        style_encoder,          #style_encoder from load_fontdiffuser_pipeline
+        content_encoder,        #content_encoder from load_fontdiffuser_pipeline
     ):
         super().__init__()
         self.unet = unet
@@ -109,20 +109,39 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
     ):
         content_images = cond[0]
         style_images = cond[1]
+        style_images_feature=[]
+        style_content_res_features=[]
 
-        style_img_feature, _, style_residual_features = self.style_encoder(style_images)
+        #style_images[0] is uncond style
+        #style_images[1] is cond style
+        #for i from 0 to n, style_images[0][i] and style[1][i] change to style_img_feature[0][i] and style_img_feature[1][i]
+        for uncond_style, cond_style in zip(style_images[0], style_images[1]):
+            feature, _, stlye_res_fea = self.style_encoder(torch.stack([uncond_style, cond_style]))
+            style_images_feature.append(feature)
         
-        batch_size, channel, height, width = style_img_feature.shape
-        style_hidden_states = style_img_feature.permute(0, 2, 3, 1).reshape(batch_size, height*width, channel)
+        style_images_feature = torch.mean(torch.stack(style_images_feature), dim=0)
+
+        # style_img_feature, _, style_residual_features = (self.style_encoder(style_image) for style_image in style_images)
+        
+        batch_size, channel, height, width = style_images_feature.shape
+        style_hidden_states = style_images_feature.permute(0, 2, 3, 1).reshape(batch_size, height*width, channel)
         
         # Get content feature
         content_img_feture, content_residual_features = self.content_encoder(content_images)
         content_residual_features.append(content_img_feture)
         # Get the content feature from reference image
-        style_content_feature, style_content_res_features = self.content_encoder(style_images)
-        style_content_res_features.append(style_content_feature)
+        for uncond_style, cond_style in zip(style_images[0], style_images[1]):
+            con_feature, con_res_feature = self.content_encoder(torch.stack([uncond_style, cond_style]))
+            con_res_feature.append(con_feature)
+            style_content_res_features.append(con_res_feature)
+        
+        style_content_res_features = torch.mean(torch.stack([torch.stack(features, dim=0) for features in style_content_res_features]), dim=0)
 
-        input_hidden_states = [style_img_feature, content_residual_features, style_hidden_states, style_content_res_features]
+        style_images_feature = torch.mean(style_images_feature, dim=0)
+        # style_content_feature, style_content_res_features = self.content_encoder(style_images)
+        # style_content_res_features.append(style_content_feature)
+
+        input_hidden_states = [style_images_feature, content_residual_features, style_hidden_states, style_content_res_features]
 
         out = self.unet(
             x_t, 

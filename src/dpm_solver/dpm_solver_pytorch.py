@@ -276,7 +276,7 @@ def model_wrapper(
         A noise prediction model that accepts the noised data and the continuous time as the inputs.
     """
 
-    def get_model_input_time(t_continuous):
+    def get_model_input_time(t_continuous):     #define the function to get the model input time
         """
         Convert the continuous-time `t_continuous` (in [epsilon, T]) to the model input time.
         For discrete-time DPMs, we convert `t_continuous` in [1 / N, 1] to `t_input` in [0, 1000 * (N - 1) / N].
@@ -287,12 +287,13 @@ def model_wrapper(
         else:
             return t_continuous
 
-    def noise_pred_fn(x, t_continuous, cond=None):
+    def noise_pred_fn(x, t_continuous, cond=None):      #define the noise prediction function
         t_input = get_model_input_time(t_continuous)
         if cond is None:
             output = model(x, t_input, **model_kwargs)
         else:
-            output = model(x, t_input, cond, **model_kwargs)
+            #todo: change the model to accept multiple style images in cond
+            output = model(x, t_input, cond, **model_kwargs)      #call the forward function of the model  
         if model_type == "noise":
             return output
         elif model_type == "x_start":
@@ -1183,20 +1184,21 @@ class DPM_Solver:
             x_end: A pytorch tensor. The approximated solution at time `t_end`.
 
         """
-        t_0 = 1. / self.noise_schedule.total_N if t_end is None else t_end
-        t_T = self.noise_schedule.T if t_start is None else t_start
+        t_0 = 1. / self.noise_schedule.total_N if t_end is None else t_end      # t_0 is the ending time
+        t_T = self.noise_schedule.T if t_start is None else t_start             # t_T is the starting time
+        # Check the time range
         assert t_0 > 0 and t_T > 0, "Time range needs to be greater than 0. For discrete-time DPMs, it needs to be in [1 / N, 1], where N is the length of betas array"
-        if return_intermediate:
+        if return_intermediate:             # We do not support return_intermediate for adaptive solver
             assert method in ['multistep', 'singlestep', 'singlestep_fixed'], "Cannot use adaptive solver when saving intermediate values"
-        if self.correcting_xt_fn is not None:
+        if self.correcting_xt_fn is not None:       # We do not support correcting_xt_fn for adaptive solver
             assert method in ['multistep', 'singlestep', 'singlestep_fixed'], "Cannot use adaptive solver when correcting_xt_fn is not None"
-        device = x.device
-        intermediates = []
-        with torch.no_grad():
-            if method == 'adaptive':
-                x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)
-            elif method == 'multistep':
-                assert steps >= order
+        device = x.device           # Get the device
+        intermediates = []          # The intermediate values
+        with torch.no_grad():       # We do not need to compute the gradients
+            if method == 'adaptive':            # Use adaptive solver
+                x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)           # Use adaptive solver
+            elif method == 'multistep':         # Use multistep solver
+                assert steps >= order           # The total steps should be greater than the order
                 timesteps = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=steps, device=device)
                 assert timesteps.shape[0] - 1 == steps
                 # Init the initial values.

@@ -40,12 +40,12 @@ def arg_parse():
     parser.add_argument("--save_image_dir", type=str, default=None,         # The saving directory
                         help="The saving directory.")
     parser.add_argument("--device", type=str, default="cuda:0")             # The device(CPU or GPU)
-    parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")
-    args = parser.parse_args()
-    style_image_size = args.style_image_size
-    content_image_size = args.content_image_size
-    args.style_image_size = (style_image_size, style_image_size)
-    args.content_image_size = (content_image_size, content_image_size)
+    parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")      # The ttf path
+    args = parser.parse_args()              # Parse the arguments
+    style_image_size = args.style_image_size                # The style image size
+    content_image_size = args.content_image_size            # The content image size
+    args.style_image_size = (style_image_size, style_image_size)        # convert style image size to tuple, image width and height are the same
+    args.content_image_size = (content_image_size, content_image_size)      # convert content image size to tuple, image width and height are the same
 
     return args
 
@@ -55,19 +55,19 @@ def image_process(args, content_image=None, style_images=None):
         # Read content image and style image
         if args.character_input:    # If the input is character
             assert args.content_character is not None, "The content_character should not be None."
-            if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):
+            if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):   # If the character is not in the font
                 return None, None
-            font = load_ttf(ttf_path=args.ttf_path)
-            content_image = ttf2im(font=font, char=args.content_character)
-            content_image_pil = content_image.copy()
+            font = load_ttf(ttf_path=args.ttf_path)     # Load the ttf
+            content_image = ttf2im(font=font, char=args.content_character)      # Convert the ttf to image
+            content_image_pil = content_image.copy()        # Copy the content image
         else:                       # If the input is image
-            content_image = Image.open(args.content_image_path).convert('RGB')
-            content_image_pil = None
-        style_images_dir = Path(args.style_image_path)
-        style_images = []
-        for style_image_path in style_images_dir.iterdir():
-            if style_image_path.is_file():
-                style_images.append(Image.open(style_image_path).convert('RGB'))
+            content_image = Image.open(args.content_image_path).convert('RGB')      # Open the content image
+            content_image_pil = None        # The content image of the PIL format
+        style_images_dir = Path(args.style_image_path)      # The style image directory
+        style_images = []       # The style images
+        for style_image_path in style_images_dir.iterdir():     # Iterate the style image directory
+            if style_image_path.is_file():      # If the style image path is a file
+                style_images.append(Image.open(style_image_path).convert('RGB'))        # Open the style image and append it to the style images
         # style_images = Image.open(args.style_image_path).convert('RGB')
     else:                   # If in demo mode
         assert style_images is not None, "The style image should not be None."
@@ -105,25 +105,25 @@ def image_process(args, content_image=None, style_images=None):
 
 def load_fontdiffuer_pipeline(args):
     # Load the model state_dict
-    unet = build_unet(args=args)
-    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))
-    style_encoder = build_style_encoder(args=args)
-    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))
-    content_encoder = build_content_encoder(args=args)
-    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))
-    model = FontDiffuserModelDPM(
+    unet = build_unet(args=args)        # Build the unet model
+    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))       # Load the unet model state_dict
+    style_encoder = build_style_encoder(args=args)          # Build the style encoder
+    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))         # Load the style encoder state_dict
+    content_encoder = build_content_encoder(args=args)      # Build the content encoder
+    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))         # Load the content encoder state_dict
+    model = FontDiffuserModelDPM(           # Build the FontDiffuserModelDPM, do the __init__ function of FontDiffuserModelDPM
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder)
-    model.to(args.device)
+    model.to(args.device)                   # Move the model to the device
     print("Loaded the model state_dict successfully!")
 
     # Load the training ddpm_scheduler.
-    train_scheduler = build_ddpm_scheduler(args=args)
+    train_scheduler = build_ddpm_scheduler(args=args)       # Build the ddpm_scheduler
     print("Loaded training DDPM scheduler sucessfully!")
 
-    # Load the DPM_Solver to generate the sample.
-    pipe = FontDiffuserDPMPipeline(
+    # Load the DPM_Solver to generate the sample, do __init__ function of FontDiffuserDPMPipeline
+    pipe = FontDiffuserDPMPipeline(         
         model=model,
         ddpm_train_scheduler=train_scheduler,
         model_type=args.model_type,
@@ -134,7 +134,7 @@ def load_fontdiffuer_pipeline(args):
 
     return pipe
 
-
+#called by  run_fontdiffuer
 def sampling(args, pipe, content_image=None, style_images=None):
     if not args.demo:   # If not in demo mode
         os.makedirs(args.save_image_dir, exist_ok=True)
@@ -143,7 +143,7 @@ def sampling(args, pipe, content_image=None, style_images=None):
     # Set the seed
     if args.seed:
         set_seed(seed=args.seed)
-    
+   #content_image_pil is the content image of the PIL format
     content_image, style_images, content_image_pil = image_process(args=args, 
                                                                   content_image=content_image, 
                                                                   style_images=style_images)
@@ -152,13 +152,13 @@ def sampling(args, pipe, content_image=None, style_images=None):
                 Please change the content_character or you can change the ttf.")
         return None
 
-    with torch.no_grad():
-        content_image = content_image.to(args.device)
-        style_images = [style_image.to(args.device) for style_image in style_images]
+    with torch.no_grad():       # Disable the gradient calculation
+        content_image = content_image.to(args.device)       # Move the content image to the device
+        style_images = [style_image.to(args.device) for style_image in style_images]        # Move the style images to the device
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
         # Generate the image
-        images = pipe.generate(
+        images = pipe.generate(     #call the generate function of FontDiffuserDPMPipeline in pipeline_dpm_solver.py
             content_images=content_image,
             style_images=style_images,
             batch_size=1,
@@ -194,7 +194,7 @@ def sampling(args, pipe, content_image=None, style_images=None):
             print(f"Finish the sampling process, costing time {end - start}s")
         return images[0]
 
-
+# ControlNet
 def load_controlnet_pipeline(args,
                              config_path="lllyasviel/sd-controlnet-canny", 
                              ckpt_path="runwayml/stable-diffusion-v1-5"):

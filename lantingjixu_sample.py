@@ -11,6 +11,7 @@ def fetch_lantingjixu_chars():
         characters = list(set(text))
         return characters
 
+#called by main function of lantingjixu_samople
 def run_fontdiffuer(content_image_path, 
                     character, 
                     style_image_path,
@@ -31,7 +32,7 @@ def run_fontdiffuer(content_image_path,
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
     out_image = sampling(
         args=args,
-        pipe=pipe,
+        pipe=pipe,      # use the loaded fontdiffuer pipeline with the model of FontDiffuserModelDPM
         content_image=content_image_path,
         style_images=style_image_path)
     return out_image
@@ -51,8 +52,8 @@ if __name__ == '__main__':
 
     # load lantingjixu sample
     characters = fetch_lantingjixu_chars()
-    total_time = 0
-    total_sample = 0
+    total_time = 0      
+    total_sample = 0        
 
     no_existence_check = False      # set to True to skip the existence check
 
@@ -61,6 +62,7 @@ if __name__ == '__main__':
             print(f'[{i+1}/{len(characters)}] outputs/{character}.png already exists')
         else:
             start_time = time.time()
+            # run fontdiffuer
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
                                         style_image_path='data_examples/sampling',
