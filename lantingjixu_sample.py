@@ -79,4 +79,4 @@ if __name__ == '__main__':
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
-    print(f"Average sampling time: {total_time/total_sample}s")
+    print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
