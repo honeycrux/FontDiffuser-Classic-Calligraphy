@@ -6,7 +6,7 @@ import os
 import time
 
 def fetch_lantingjixu_chars():
-    with open('lantingjixu.txt', 'r', encoding='utf-8') as text_file:
+    with open('lantingjixu_test.txt', 'r', encoding='utf-8') as text_file:
         text = text_file.read()
         characters = list(set(text))
         return characters
@@ -45,8 +45,9 @@ if __name__ == '__main__':
     args.method = 'multistep'
     args.guidance_type = 'classifier-free'
     args.algorithm_type = 'dpmsolver++'
+
     args.device = "cpu"
-    args.style_image_path = "./data_examples/style_images"
+
     # load fontdiffuer pipeline
     pipe = load_fontdiffuer_pipeline(args=args)
 
@@ -65,10 +66,10 @@ if __name__ == '__main__':
             # run fontdiffuer
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/sampling',
+                                        style_image_path='data_examples/style_images',
                                         save_image_dir='outputs/',
                                         sampling_step=20,
-                                        guidance_scale=30,
+                                        guidance_scale=7.5,
                                         batch_size=1,
                                         seed=0)
             end_time = time.time()
@@ -80,4 +81,4 @@ if __name__ == '__main__':
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
-    print(f"Average sampling time: {total_time/total_sample}s")
+    print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
