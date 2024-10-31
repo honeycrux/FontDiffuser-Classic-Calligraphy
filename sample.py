@@ -9,6 +9,7 @@ from pathlib import Path
 import torch
 import torchvision.transforms as transforms
 from accelerate.utils import set_seed
+from reference_selection import reference_selection
 
 from src import (FontDiffuserDPMPipeline,
                  FontDiffuserModelDPM,
@@ -41,6 +42,10 @@ def arg_parse():
                         help="The saving directory.")
     parser.add_argument("--device", type=str, default="cuda:0")             # The device(CPU or GPU)
     parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")      # The ttf path
+
+    # reference selection
+    parser.add_argument("--num_references", type=int, default=5)       # The number of references
+
     args = parser.parse_args()              # Parse the arguments
     style_image_size = args.style_image_size                # The style image size
     content_image_size = args.content_image_size            # The content image size
@@ -50,9 +55,9 @@ def arg_parse():
     return args
 
 
-def image_process(args, content_image=None, style_images=None):
+def content_image_process(args, content_image=None):
     if not args.demo:       # If not in demo mode
-        # Read content image and style image
+        # Read content image
         if args.character_input:    # If the input is character
             assert args.content_character is not None, "The content_character should not be None."
             if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):   # If the character is not in the font
@@ -63,14 +68,7 @@ def image_process(args, content_image=None, style_images=None):
         else:                       # If the input is image
             content_image = Image.open(args.content_image_path).convert('RGB')      # Open the content image
             content_image_pil = None        # The content image of the PIL format
-        style_images_dir = Path(args.style_image_path)      # The style image directory
-        style_images = []       # The style images
-        for style_image_path in style_images_dir.iterdir():     # Iterate the style image directory
-            if style_image_path.is_file():      # If the style image path is a file
-                style_images.append(Image.open(style_image_path).convert('RGB'))        # Open the style image and append it to the style images
-        # style_images = Image.open(args.style_image_path).convert('RGB')
     else:                   # If in demo mode
-        assert style_images is not None, "The style image should not be None."
         if args.character_input:
             assert args.content_character is not None, "The content_character should not be None."
             if not is_char_in_font(font_path=args.ttf_path, char=args.content_character):
@@ -80,7 +78,7 @@ def image_process(args, content_image=None, style_images=None):
         else:
             assert content_image is not None, "The content image should not be None."
         content_image_pil = None
-        
+
     ## Dataset transform
     content_inference_transforms = transforms.Compose(
         # Resize the image to the target size
@@ -90,18 +88,36 @@ def image_process(args, content_image=None, style_images=None):
             transforms.ToTensor(),
             # Normalize the image
             transforms.Normalize([0.5], [0.5])])
-    # Style image transform
+    # Apply the transform to the content image
+    content_image = content_inference_transforms(content_image)[None, :]
+
+    return content_image, content_image_pil
+
+def style_image_process(args, style_images=None, selected_files=None):
+    def is_selected(file_name):
+        if selected_files is None:
+            return True
+        return file_name in selected_files
+    if not args.demo:
+        # Read style image
+        style_images_dir = Path(args.style_image_path)
+        style_images = []
+        # style_images = Image.open(args.style_image_path).convert('RGB')
+        for style_image_path in style_images_dir.iterdir():
+            if style_image_path.is_file() and is_selected(style_image_path.name):
+                style_images.append(Image.open(style_image_path).convert('RGB'))
+    else:
+        assert style_images is not None, "The style image should not be None."
+
+    ## Dataset transform
     style_inference_transforms = transforms.Compose(
         [transforms.Resize(args.style_image_size, \
                            interpolation=transforms.InterpolationMode.BILINEAR),
          transforms.ToTensor(),
          transforms.Normalize([0.5], [0.5])])
-    # Apply the transform to the content image
-    content_image = content_inference_transforms(content_image)[None, :]
-    # Apply the transform to the style image
     style_images = [style_inference_transforms(style_image)[None, :] for style_image in style_images]
 
-    return content_image, style_images, content_image_pil
+    return style_images
 
 def load_fontdiffuer_pipeline(args):
     # Load the model state_dict
@@ -140,17 +156,25 @@ def sampling(args, pipe, content_image=None, style_images=None):
         os.makedirs(args.save_image_dir, exist_ok=True)
         # saving sampling config
         save_args_to_yaml(args=args, output_file=f"{args.save_image_dir}/sampling_config.yaml")
-    # Set the seed
+
     if args.seed:
         set_seed(seed=args.seed)
-   #content_image_pil is the content image of the PIL format
-    content_image, style_images, content_image_pil = image_process(args=args, 
-                                                                  content_image=content_image, 
-                                                                  style_images=style_images)
+
+    content_image, content_image_pil = content_image_process(args=args, content_image=content_image)
     if content_image == None:
         print(f"The content_character you provided is not in the ttf. \
                 Please change the content_character or you can change the ttf.")
         return None
+
+    style_encoder = build_style_encoder(args=args)
+    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))
+
+    encoded_references = torch.load(f"{args.ckpt_dir}/encoded_references.pth")
+    ranked_references = reference_selection(args=args, style_encoder=style_encoder, encoded_references=encoded_references, content_image=content_image)
+    selected_files = [t[0] for t in ranked_references[:args.num_references]]
+    print(f"Character: {args.content_character}; Selected files: {selected_files}")
+
+    style_images = style_image_process(args=args, style_images=style_images, selected_files=selected_files)
 
     with torch.no_grad():       # Disable the gradient calculation
         content_image = content_image.to(args.device)       # Move the content image to the device

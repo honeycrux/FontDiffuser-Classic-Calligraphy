@@ -66,8 +66,8 @@ if __name__ == '__main__':
             # run fontdiffuer
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/style_images',
-                                        save_image_dir='outputs/',
+                                        style_image_path='lantingxu_resized/id_0',
+                                        save_image_dir='outputs/fs_ref',
                                         sampling_step=20,
                                         guidance_scale=7.5,
                                         batch_size=1,
@@ -76,7 +76,7 @@ if __name__ == '__main__':
             print(f"Finish the sampling process, costing time {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            out_image.save(f'outputs/{character}.png')
+            out_image.save(f'{args.save_image_dir}/{character}.png')
             print(f'[{i+1}/{len(characters)}] created outputs/{character}.png')
 
     print(f"Total sampling time: {total_time}s")
