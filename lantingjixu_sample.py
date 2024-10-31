@@ -11,7 +11,6 @@ def fetch_lantingjixu_chars():
         characters = list(set(text))
         return characters
 
-#called by main function of lantingjixu_samople
 def run_fontdiffuer(content_image_path, 
                     character, 
                     style_image_path,

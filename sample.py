@@ -150,7 +150,6 @@ def load_fontdiffuer_pipeline(args):
 
     return pipe
 
-#called by  run_fontdiffuer
 def sampling(args, pipe, content_image=None, style_images=None):
     if not args.demo:   # If not in demo mode
         os.makedirs(args.save_image_dir, exist_ok=True)
