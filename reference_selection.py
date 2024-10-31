@@ -56,9 +56,9 @@ def fetch_lantingjixu_chars():
         return characters
 
 def fetch_lantingjixu_char_files():
-    with open('strokelist.txt', 'r', encoding='utf-8-sig') as f:
-        lines = f.readlines()
-        word_id_map = {line.strip()[0]: i for i, line in enumerate(lines)}
+    with open('wordlist.txt', 'r', encoding='utf-8') as f:
+        line = f.read().strip()
+        word_id_map = {word.strip()[0]: i for i, word in enumerate(line)}
 
     with open('lacklist.txt', 'r', encoding='utf-8') as f:
         line = f.read().strip()
@@ -141,8 +141,10 @@ def reference_selection_example():
 
 
 if __name__ == "__main__":
-    build_reference_dict_example()
+    # build_reference_dict_example()
 
     # test reference selection
     # sims = reference_selection_example()
     # print(sims[:5])
+
+    fetch_lantingjixu_char_files()
