@@ -141,10 +141,8 @@ def reference_selection_example():
 
 
 if __name__ == "__main__":
-    # build_reference_dict_example()
+    build_reference_dict_example()
 
     # test reference selection
     # sims = reference_selection_example()
     # print(sims[:5])
-
-    fetch_lantingjixu_char_files()
