@@ -45,7 +45,9 @@ if __name__ == '__main__':
     args.guidance_type = 'classifier-free'
     args.algorithm_type = 'dpmsolver++'
 
-    args.device = "cpu"
+    args.save_image_dir = 'outputs/original'
+
+    # args.device = "cpu"
 
     # load fontdiffuer pipeline
     pipe = load_fontdiffuer_pipeline(args=args)
@@ -55,17 +57,17 @@ if __name__ == '__main__':
     total_time = 0
     total_sample = 0
 
-    no_existence_check = True
+    no_existence_check = False
 
     for i, character in enumerate(characters):
-        if not no_existence_check and os.path.exists(f'outputs/{character}.png'):
-            print(f'[{i+1}/{len(characters)}] outputs/{character}.png already exists')
+        if not no_existence_check and os.path.exists(f'{args.save_image_dir}/{character}.png'):
+            print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
                                         style_image_path='data_examples/sampling/02348.png',
-                                        save_image_dir='outputs/',
+                                        save_image_dir=args.save_image_dir,
                                         sampling_step=20,
                                         guidance_scale=7.5,
                                         batch_size=1,
@@ -74,8 +76,8 @@ if __name__ == '__main__':
             print(f"Finish the sampling process, costing time {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            out_image.save(f'outputs/{character}.png')
-            print(f'[{i+1}/{len(characters)}] created outputs/{character}.png')
+            out_image.save(f'{args.save_image_dir}/{character}.png')
+            print(f'[{i+1}/{len(characters)}] created {args.save_image_dir}/{character}.png')
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
