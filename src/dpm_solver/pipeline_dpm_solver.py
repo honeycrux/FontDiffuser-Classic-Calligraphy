@@ -63,9 +63,6 @@ class FontDiffuserDPMPipeline():
         cond = []
         cond.append(content_images)     #content image list
 
-        # for i in range(5):{
-        # }
-
         #take average to get the style image
         #style_images = torch.mean(torch.stack(style_images),dim=0)
         style_images = torch.stack(style_images)       #convert the list to tensor to a new tensor with dimension of no.tensor*3*96*96
@@ -82,7 +79,7 @@ class FontDiffuserDPMPipeline():
 
         # 2.Convert the discrete-time model to the continuous-time
         model_fn = model_wrapper(           #model_wrapper is defined in dpm_solver_pytorch.py
-            model=self.model,               
+            model=self.model,
             noise_schedule=self.noise_schedule,
             model_type=self.model_type,
             model_kwargs=model_kwargs,
@@ -96,7 +93,7 @@ class FontDiffuserDPMPipeline():
         # (We recommend multistep DPM-Solver for conditional sampling)
         # You can adjust the `steps` to balance the computation costs and the sample quality.
         dpm_solver = DPM_Solver(        # do the _init_ function in DPM_Solver class
-            model_fn=model_fn,          
+            model_fn=model_fn,
             noise_schedule=self.noise_schedule,
             algorithm_type=algorithm_type,
             correcting_x0_fn=correcting_x0_fn
