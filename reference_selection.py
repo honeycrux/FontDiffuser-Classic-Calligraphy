@@ -39,13 +39,16 @@ def arg_parse():
     return args
 
 
-def use_style_encoder(args, style_encoder, image: Image.Image):
+def transform_image(args, image: Image.Image):
     style_inference_transforms = transforms.Compose(
         [transforms.Resize(args.style_image_size, \
                         interpolation=transforms.InterpolationMode.BILINEAR),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])])
     image = style_inference_transforms(image)[None, :]
+    return image
+
+def use_style_encoder(args, style_encoder, image: torch.Tensor):
     encoded_style = style_encoder(image)
     return encoded_style
 
@@ -84,7 +87,8 @@ def build_reference_dict(args, style_encoder, selected_files = None):
         file_name = image_path.name
         if image_path.is_file() and is_selected(file_name):
             style_image = Image.open(image_path).convert('RGB')
-            style_img_feature, _, style_residual_features = use_style_encoder(args=args, style_encoder=style_encoder, image=style_image)
+            transformed_style_image = transform_image(args, style_image)
+            style_img_feature, _, style_residual_features = use_style_encoder(args=args, style_encoder=style_encoder, image=transformed_style_image)
             encoded_references[file_name] = style_img_feature
     print(f"Number of references: {len(encoded_references)}")
     torch.save(encoded_references, f"{args.ckpt_dir}/encoded_references.pth")
@@ -94,7 +98,7 @@ def build_reference_dict(args, style_encoder, selected_files = None):
             if selected_file not in encoded_references:
                 print(f"Missing reference for {selected_file}")
 
-def reference_selection(args, style_encoder, encoded_references, content_image: Image.Image):
+def reference_selection(args, style_encoder, encoded_references, content_image: torch.Tensor):
     content_img_feature, _, content_residual_features = use_style_encoder(args=args, style_encoder=style_encoder, image=content_image)
 
     loss_type = 'mse'
@@ -135,8 +139,9 @@ def reference_selection_example():
     encoded_references = torch.load(f"{args.ckpt_dir}/encoded_references.pth")
 
     content_image = Image.open(args.content_image_path).convert('RGB')
+    transformed_content_image = transform_image(args, content_image)
 
-    sorted_similarity = reference_selection(args=args, style_encoder=style_encoder, encoded_references=encoded_references, content_image=content_image)
+    sorted_similarity = reference_selection(args=args, style_encoder=style_encoder, encoded_references=encoded_references, content_image=transformed_content_image)
     return sorted_similarity
 
 
