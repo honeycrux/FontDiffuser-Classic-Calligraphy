@@ -5,6 +5,7 @@ import torch.nn as nn
 from diffusers import ModelMixin
 from diffusers.configuration_utils import (ConfigMixin, 
                                            register_to_config)
+from nn_fewshot import StyleFeatureExtractor, ContentFeatureExtractor1, ContentFeatureExtractor2, ContentFeatureExtractor3, ContentFeatureExtractor4, ContentFeatureExtractor5
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel is a class which is inherited from ModelMixin and ConfigMixin
     """Forward function for FontDiffuer with content encoder \
@@ -98,6 +99,13 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         self.unet = unet
         self.style_encoder = style_encoder
         self.content_encoder = content_encoder
+        self.style_feature_extractor = StyleFeatureExtractor()
+        self.content_feature_extractor1 = ContentFeatureExtractor1()
+        self.content_feature_extractor2 = ContentFeatureExtractor2()
+        self.content_feature_extractor3 = ContentFeatureExtractor3()
+        self.content_feature_extractor4 = ContentFeatureExtractor4()
+        self.content_feature_extractor5 = ContentFeatureExtractor5()
+
     
     def forward(
         self, 
@@ -119,7 +127,9 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             feature, _, stlye_res_fea = self.style_encoder(torch.stack([uncond_style, cond_style]))
             style_images_feature.append(feature)
         
-        style_images_feature = torch.mean(torch.stack(style_images_feature), dim=0)
+        # style_images_feature = torch.mean(torch.stack(style_images_feature), dim=0)
+
+        style_images_feature = self.style_feature_extractor(torch.stack(style_images_feature))
 
         # style_img_feature, _, style_residual_features = self.style_encoder(style_images)
         
@@ -138,9 +148,20 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         #style_content_res_features[i][j], i is the index of different style images, j is the index of different fs with the same style image
         #find the average of different style images with the same fs (different i, same j)
         average_features = []
-        for i in range(len(style_content_res_features[0])):
-            fsi = [fs[i] for fs in style_content_res_features]
-            average_features.append(torch.mean(torch.stack(fsi), dim=0))
+        # for i in range(len(style_content_res_features[0])):
+        #     fsi = [fs[i] for fs in style_content_res_features]
+        #     average_features.append(torch.mean(torch.stack(fsi), dim=0))
+
+        fs1 = [fs[0] for fs in style_content_res_features]
+        average_features[0] = self.content_feature_extractor1(torch.stack(fs1))
+        fs2 = [fs[1] for fs in style_content_res_features]
+        average_features[1] = self.content_feature_extractor2(torch.stack(fs2))
+        fs3 = [fs[2] for fs in style_content_res_features]
+        average_features[2] = self.content_feature_extractor3(torch.stack(fs3))
+        fs4 = [fs[3] for fs in style_content_res_features]
+        average_features[3] = self.content_feature_extractor4(torch.stack(fs4))
+        fs5 = [fs[4] for fs in style_content_res_features]
+        average_features[4] = self.content_feature_extractor5(torch.stack(fs5))
 
         # style_content_res_features = torch.mean(torch.stack([torch.stack(features, dim=0) for features in style_content_res_features]), dim=0)
 
