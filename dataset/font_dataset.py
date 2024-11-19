@@ -17,11 +17,12 @@ def get_nonorm_transform(resolution):
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, transforms=None, scr=False):
+    def __init__(self, args, phase, training_phase, transforms=None):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.scr = scr
+        self.training_phase = training_phase
+        self.scr = training_phase >= 2
         if self.scr:
             self.num_neg = args.num_neg
         
