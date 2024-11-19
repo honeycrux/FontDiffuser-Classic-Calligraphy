@@ -15,7 +15,8 @@ from src import (FontDiffuserDPMPipeline,
                  build_ddpm_scheduler,
                  build_unet,
                  build_content_encoder,
-                 build_style_encoder)
+                 build_style_encoder,
+                 build_k_feature_extractor)
 from utils import (ttf2im,
                    load_ttf,
                    is_char_in_font,
@@ -39,7 +40,7 @@ def arg_parse():
     parser.add_argument("--save_image", action="store_true")        # If save the image
     parser.add_argument("--save_image_dir", type=str, default=None,         # The saving directory
                         help="The saving directory.")
-    parser.add_argument("--device", type=str, default="cuda:0")             # The device(CPU or GPU)
+    parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")  # The device (CPU or GPU)
     parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")      # The ttf path
     args = parser.parse_args()              # Parse the arguments
     style_image_size = args.style_image_size                # The style image size
@@ -111,10 +112,13 @@ def load_fontdiffuer_pipeline(args):
     style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))         # Load the style encoder state_dict
     content_encoder = build_content_encoder(args=args)      # Build the content encoder
     content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))         # Load the content encoder state_dict
+    k_feature_extractor = build_k_feature_extractor(args=args)        # Build the k feature extractor
+    k_feature_extractor.load_state_dict(torch.load(f"{args.ckpt_dir}/k_feature_extractor.pth"))       # Load the k feature extractor state_dict
     model = FontDiffuserModelDPM(           # Build the FontDiffuserModelDPM, do the __init__ function of FontDiffuserModelDPM
         unet=unet,
         style_encoder=style_encoder,
-        content_encoder=content_encoder)
+        content_encoder=content_encoder,
+        k_feature_extractor=k_feature_extractor,)
     model.to(args.device)                   # Move the model to the device
     print("Loaded the model state_dict successfully!")
 

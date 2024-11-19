@@ -2,7 +2,8 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from src import (ContentEncoder, 
                  StyleEncoder, 
                  UNet,
-                 SCR)
+                 SCR,
+                 KFeatureExtractor)
 
 
 def build_unet(args):
@@ -60,6 +61,11 @@ def build_scr(args):
         image_size=args.scr_image_size)
     print("Loaded SCR module for supervision successfully!")
     return scr
+
+def build_k_feature_extractor(args):
+    k_feature_extractor = KFeatureExtractor(
+        K=args.k_shot)
+    return k_feature_extractor
 
 
 def build_ddpm_scheduler(args):

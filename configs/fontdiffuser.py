@@ -30,9 +30,11 @@ def get_parser():
                         help="The channels of the fisrt layer output of content encoder.",)
     parser.add_argument("--style_start_channel", type=int, default=64, 
                         help="The channels of the fisrt layer output of content encoder.",)
+    parser.add_argument("--k_shot", type=int, default=5, help="The number of k-shot.")
     
     # Training
-    parser.add_argument("--phase_2", action="store_true", help="Training in phase 2 using SCR module.")
+    # parser.add_argument("--phase_2", action="store_true", help="Training in phase 2 using SCR module.")
+    parser.add_argument("--training_phase", type=int, help="The training phase number.")
     parser.add_argument("--phase_1_ckpt_dir", type=str, default=None, help="The trained ckpt directory during phase 1.")
     ## SCR
     parser.add_argument("--temperature", type=float, default=0.07)

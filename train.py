@@ -22,7 +22,8 @@ from src import (FontDiffuserModel,
                  build_style_encoder,
                  build_content_encoder,
                  build_ddpm_scheduler,
-                 build_scr)
+                 build_scr,
+                 build_k_feature_extractor)
 from utils import (save_args_to_yaml,
                    x0_from_epsilon, 
                    reNormalize_img, 
@@ -73,22 +74,25 @@ def main():
     unet = build_unet(args=args)
     style_encoder = build_style_encoder(args=args)
     content_encoder = build_content_encoder(args=args)
+    k_feature_extractor = build_k_feature_extractor(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
-    if args.phase_2:
+    if args.training_phase >= 2:
         unet.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/unet.pth"))
         style_encoder.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/style_encoder.pth"))
         content_encoder.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/content_encoder.pth"))
+        # k_feature_extractor.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/k_feature_extractor.pth"))
 
     model = FontDiffuserModel(
         unet=unet,
         style_encoder=style_encoder,
-        content_encoder=content_encoder)
+        content_encoder=content_encoder,
+        k_feature_extractor=k_feature_extractor,)
 
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
 
     # Load SCR module for supervision
-    if args.phase_2:
+    if args.training_phase >= 2:
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
         scr.requires_grad_(False)
@@ -116,7 +120,7 @@ def main():
             content_transforms, 
             style_transforms, 
             target_transforms],
-        scr=args.phase_2)
+        training_phase=args.training_phase)
     train_dataloader = torch.utils.data.DataLoader(
         train_font_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
     
@@ -140,7 +144,7 @@ def main():
     model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler)
     ## move scr module to the target deivces
-    if args.phase_2:
+    if args.training_phase >= 2:
         scr = scr.to(accelerator.device)
 
     # The trackers initializes automatically on the main process.
@@ -163,6 +167,8 @@ def main():
             model.train()
             content_images = samples["content_image"]
             style_images = samples["style_image"]
+            print(content_images.shape)
+            print(style_images.shape)
             target_images = samples["target_image"]
             nonorm_target_images = samples["nonorm_target_image"]
             
@@ -213,7 +219,7 @@ def main():
                         args.perceptual_coefficient * percep_loss + \
                             args.offset_coefficient * offset_loss
                 
-                if args.phase_2:
+                if args.training_phase >= 2:
                     neg_images = samples["neg_images"]
                     # sc loss
                     sample_style_embeddings, pos_style_embeddings, neg_style_embeddings = scr(
@@ -253,6 +259,7 @@ def main():
                         torch.save(model.unet.state_dict(), f"{save_dir}/unet.pth")
                         torch.save(model.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
                         torch.save(model.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
+                        torch.save(model.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
                         torch.save(model, f"{save_dir}/total_model.pth")
                         logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
                         print("Save the checkpoint on global step {}".format(global_step))
