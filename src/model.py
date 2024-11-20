@@ -38,27 +38,24 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
 
         ## Original implementation: one style image
         ### Get style feature from style image
-        style_style_feature, _, _ = self.style_encoder(style_images)
+        # style_style_feature, _, _ = self.style_encoder(style_images)
 
         ### Get content feature from content image
-        content_content_feature, content_content_residual_features = self.content_encoder(content_images)
-        content_content_residual_features.append(content_content_feature)
+        # content_content_feature, content_content_residual_features = self.content_encoder(content_images)
+        # content_content_residual_features.append(content_content_feature)
 
         ### Get content feature from style image
-        style_content_feature, style_content_residual_features = self.content_encoder(style_images)
-        style_content_residual_features.append(style_content_feature)
+        # style_content_feature, style_content_residual_features = self.content_encoder(style_images)
+        # style_content_residual_features.append(style_content_feature)
 
         ## New implementation: K style images
 
-        ### Initialization
-        style_image_list = style_images
-
         ### Get style feature from style image *list*
-        # style_image_list[0] is a tensor of unconditional style images
-        # style_image_list[1] is a tensor of conditional style images
+        # style_images are in the shape of (N, K, C, H, W)
         style_style_feature_list=[]
-        for uncond_style, cond_style in zip(style_image_list[0], style_image_list[1]):
-            style_style_feature, _, style_style_residual_features = self.style_encoder(torch.stack([uncond_style, cond_style]))
+        for k in range(style_images):
+            style_image_batch = style_images[:, k, :, :, :]
+            style_style_feature, _, style_style_residual_features = self.style_encoder(style_image_batch)
             style_style_feature_list.append(style_style_feature)
 
         ### Get content feature from content image
@@ -67,8 +64,9 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
 
         ### Get content feature from style image *list*
         style_content_residual_features_list=[]
-        for uncond_style, cond_style in zip(style_image_list[0], style_image_list[1]):
-            style_content_feature, style_content_residual_features = self.content_encoder(torch.stack([uncond_style, cond_style]))
+        for k in range(style_images):
+            style_image_batch = style_images[:, k, :, :, :]
+            style_content_feature, style_content_residual_features = self.content_encoder(style_image_batch)
             style_content_residual_features.append(style_content_feature)
             style_content_residual_features_list.append(style_content_residual_features)
 

@@ -23,6 +23,7 @@ class FontDataset(Dataset):
         self.phase = phase
         self.training_phase = training_phase
         self.scr = training_phase >= 2
+        self.k_shot = args.k_shot
         if self.scr:
             self.num_neg = args.num_neg
         
@@ -52,20 +53,40 @@ class FontDataset(Dataset):
         # Read content image
         content_image_path = f"{self.root}/{self.phase}/ContentImage/{content}.jpg"
         content_image = Image.open(content_image_path).convert('RGB')
+        if self.transforms is not None:
+            content_image = self.transforms[0](content_image)
 
         # Random sample used for style image
         images_related_style = self.style_to_images[style].copy()
         images_related_style.remove(target_image_path)
-        style_image_path = random.choice(images_related_style)
-        style_image = Image.open(style_image_path).convert("RGB")
+
+        # Original implementation: Get 1 style image
+        # style_image_path = random.choice(images_related_style)
+        # style_image = Image.open(style_image_path).convert("RGB")
+        # if self.transforms is not None:
+        #     style_image = self.transforms[1](style_image)
+
+        # My implementation: Get K style images of the same style
+        choose_style_image_names = []
+        # Choose style images
+        for i in range(self.k_shot):
+            style_image_path = random.choice(images_related_style)
+            choose_style_image_names.append(style_image_path)
+            images_related_style.remove(style_image_path)
+        # Load style images
+        for i, style_image_path in enumerate(choose_style_image_names):
+            style_image = Image.open(style_image_path).convert("RGB")
+            if self.transforms is not None:
+                style_image = self.transforms[1](style_image)
+            if i == 0:
+                style_images = style_image[None, :, :, :]
+            else:
+                style_images = torch.cat([style_images, style_image[None, :, :, :]], dim=0)
         
         # Read target image
         target_image = Image.open(target_image_path).convert("RGB")
         nonorm_target_image = self.nonorm_transforms(target_image)
-
         if self.transforms is not None:
-            content_image = self.transforms[0](content_image)
-            style_image = self.transforms[1](style_image)
             target_image = self.transforms[2](target_image)
         
         sample = {

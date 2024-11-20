@@ -167,8 +167,6 @@ def main():
             model.train()
             content_images = samples["content_image"]
             style_images = samples["style_image"]
-            print(content_images.shape)
-            print(style_images.shape)
             target_images = samples["target_image"]
             nonorm_target_images = samples["nonorm_target_image"]
             
@@ -188,8 +186,8 @@ def main():
                 context_mask = torch.bernoulli(torch.zeros(bsz) + args.drop_prob)
                 for i, mask_value in enumerate(context_mask):
                     if mask_value==1:
-                        content_images[i, :, :, :] = 1
-                        style_images[i, :, :, :] = 1
+                        content_images[i, :, :, :] = 1 # [N, C, H, W]
+                        style_images[i, :, :, :, :] = 1 # k-shot: [N, K, C, H, W]
 
                 # Predict the noise residual and compute loss
                 noise_pred, offset_out_sum = model(
