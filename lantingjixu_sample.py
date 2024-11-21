@@ -57,7 +57,7 @@ if __name__ == '__main__':
     total_time = 0      
     total_sample = 0        
 
-    no_existence_check = False      # set to True to skip the existence check
+    no_existence_check = True      # set to True to skip the existence check
 
     for i, character in enumerate(characters):
         if not no_existence_check and os.path.exists(f'{args.save_image_dir}/{character}.png'):
@@ -67,7 +67,7 @@ if __name__ == '__main__':
             # run fontdiffuer
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/style_images',
+                                        style_image_path='outputs/style_images',
                                         save_image_dir=args.save_image_dir,
                                         sampling_step=20,
                                         guidance_scale=7.5,

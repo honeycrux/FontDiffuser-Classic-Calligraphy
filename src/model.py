@@ -109,13 +109,18 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
     ):
         content_images = cond[0]
         style_images = cond[1]
+
+        K = len(style_images) // 2
+        uncond_style_batch = style_images[0 : K]
+        cond_style_batch = style_images[K :]
+
         style_images_feature=[]
         style_content_res_features=[]
 
         #style_images[0] is uncond style
         #style_images[1] is cond style
         #for i from 0 to n, style_images[0][i] and style[1][i] change to style_img_feature[0][i] and style_img_feature[1][i]
-        for uncond_style, cond_style in zip(style_images[0], style_images[1]):
+        for uncond_style, cond_style in zip(uncond_style_batch, cond_style_batch):
             feature, _, stlye_res_fea = self.style_encoder(torch.stack([uncond_style, cond_style]))
             style_images_feature.append(feature)
         
@@ -130,7 +135,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         content_img_feture, content_residual_features = self.content_encoder(content_images)
         content_residual_features.append(content_img_feture)
         # Get the content feature from reference image
-        for uncond_style, cond_style in zip(style_images[0], style_images[1]):
+        for uncond_style, cond_style in zip(uncond_style_batch, cond_style_batch):
             con_feature, con_res_feature = self.content_encoder(torch.stack([uncond_style, cond_style]))
             con_res_feature.append(con_feature)
             style_content_res_features.append(con_res_feature)

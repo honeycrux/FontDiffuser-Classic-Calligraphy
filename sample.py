@@ -153,7 +153,7 @@ def sampling(args, pipe, content_image=None, style_images=None):
 
     with torch.no_grad():       # Disable the gradient calculation
         content_image = content_image.to(args.device)       # Move the content image to the device
-        style_images = [style_image.to(args.device) for style_image in style_images]        # Move the style images to the device
+        style_images = torch.cat(style_images).to(args.device)
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
         # Generate the image
