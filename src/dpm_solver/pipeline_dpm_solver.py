@@ -61,19 +61,14 @@ class FontDiffuserDPMPipeline():
         model_kwargs["content_encoder_downsample_size"] = content_encoder_downsample_size
 
         cond = []
-        cond.append(content_images)     #content image list
-
-        #take average to get the style image
-        #style_images = torch.mean(torch.stack(style_images),dim=0)
-        style_images = torch.stack(style_images)       #convert the list to tensor to a new tensor with dimension of no.tensor*3*96*96
-        cond.append(style_images)       #style image list
+        cond.append(content_images)
+        cond.append(style_images)
 
         # 1. Define the conditional and unconditional conditions    
         uncond = []
-        uncond_content_images = torch.ones_like(content_images).to(self.model.device)       #create a tensor with the same shape as content_images
-        uncond_style_images=torch.stack([torch.ones_like(style_image) for style_image in style_images]) #create a tensor list with the same shape as style_images
+        uncond_content_images = torch.ones_like(content_images).to(self.model.device)
+        uncond_style_images = torch.ones_like(style_images).to(self.model.device)
 
-        # uncond_style_images = torch.ones_like(style_images).to(self.model.device)           #create a tensor with the same shape as style_images
         uncond.append(uncond_content_images)
         uncond.append(uncond_style_images)
 

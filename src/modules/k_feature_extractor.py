@@ -36,38 +36,55 @@ class KFeatureExtractorUnit(nn.Module):
 class KFeatureExtractor(nn.Module):
     def __init__(self, K):
         super(KFeatureExtractor, self).__init__()
-        self.style_feature_extractor = KFeatureExtractorUnit(K=K, singleton_shape=(3, 3, 1024))
-        self.content_feature_extractor1 = KFeatureExtractorUnit(K=K, singleton_shape=(3, 96, 96))
-        self.content_feature_extractor2 = KFeatureExtractorUnit(K=K, singleton_shape=(64, 48, 48))
-        self.content_feature_extractor3 = KFeatureExtractorUnit(K=K, singleton_shape=(128, 24, 24))
-        self.content_feature_extractor4 = KFeatureExtractorUnit(K=K, singleton_shape=(256, 12, 12))
-        self.content_feature_extractor5 = KFeatureExtractorUnit(K=K, singleton_shape=(256, 12, 12))
+        self.style_feature_extractor = KFeatureExtractorUnit(K=K, singleton_shape=style_feature_extractor_input_singleton)
+        self.content_feature_extractor1 = KFeatureExtractorUnit(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
+        self.content_feature_extractor2 = KFeatureExtractorUnit(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
+        self.content_feature_extractor3 = KFeatureExtractorUnit(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
+        self.content_feature_extractor4 = KFeatureExtractorUnit(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
+        self.content_feature_extractor5 = KFeatureExtractorUnit(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
 
     def forward(self, style_features: torch.Tensor, content_features: list[torch.Tensor]):
-        style_features = self.style_feature_extractor(style_features)
+        style_features = self.style_feature_extractor(style_features).squeeze(dim=1)
 
         content_features = [
-            self.content_feature_extractor1(content_features[0]),
-            self.content_feature_extractor2(content_features[1]),
-            self.content_feature_extractor3(content_features[2]),
-            self.content_feature_extractor4(content_features[3]),
-            self.content_feature_extractor5(content_features[4]),
+            self.content_feature_extractor1(content_features[0]).squeeze(dim=1),
+            self.content_feature_extractor2(content_features[1]).squeeze(dim=1),
+            self.content_feature_extractor3(content_features[2]).squeeze(dim=1),
+            self.content_feature_extractor4(content_features[3]).squeeze(dim=1),
+            self.content_feature_extractor5(content_features[4]).squeeze(dim=1),
         ]
 
         return style_features, content_features
 
-def report_parameters_count(model):
+def report_parameters_count(name, model):
     count = 0
     for param in model.parameters():
         count += torch.prod(torch.tensor(param.size()))
-    print(f"KFeatureExtractor Parameters: {count}")
+    print(f"{name} Parameters: {count}")
 
 if __name__ == '__main__':
-    model = KFeatureExtractor(5)
-    report_parameters_count(model.style_feature_extractor)
-    report_parameters_count(model.content_feature_extractor1)
-    report_parameters_count(model.content_feature_extractor2)
-    report_parameters_count(model.content_feature_extractor3)
-    report_parameters_count(model.content_feature_extractor4)
-    report_parameters_count(model.content_feature_extractor5)
-    report_parameters_count(model)
+    test_batch_num = 4
+    test_k = 5
+
+    model = KFeatureExtractor(test_k)
+    report_parameters_count("StyleFeatureExtractor", model.style_feature_extractor)
+    report_parameters_count("ContentFeatureExtractor1", model.content_feature_extractor1)
+    report_parameters_count("ContentFeatureExtractor2", model.content_feature_extractor2)
+    report_parameters_count("ContentFeatureExtractor3", model.content_feature_extractor3)
+    report_parameters_count("ContentFeatureExtractor4", model.content_feature_extractor4)
+    report_parameters_count("ContentFeatureExtractor5", model.content_feature_extractor5)
+    report_parameters_count("KFeatureExtractor", model)
+
+    style_features = torch.randn(test_batch_num, test_k, * style_feature_extractor_input_singleton)
+    content_features = [
+        torch.randn(test_batch_num, test_k, * content_feature_extractor_1_input_singleton),
+        torch.randn(test_batch_num, test_k, * content_feature_extractor_2_input_singleton),
+        torch.randn(test_batch_num, test_k, * content_feature_extractor_3_input_singleton),
+        torch.randn(test_batch_num, test_k, * content_feature_extractor_4_input_singleton),
+        torch.randn(test_batch_num, test_k, * content_feature_extractor_5_input_singleton),
+    ]
+
+    style_features_final, content_features_final = model(style_features, content_features)
+    print(f"Style Features Shape: {style_features_final.shape}")
+    for i, content_feature in enumerate(content_features_final):
+        print(f"Content Features Shape ({i}): {content_feature.shape}")

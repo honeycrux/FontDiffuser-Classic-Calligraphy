@@ -48,34 +48,63 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         # style_content_feature, style_content_residual_features = self.content_encoder(style_images)
         # style_content_residual_features.append(style_content_feature)
 
-        ## New implementation: K style images
+        ## Implementation 1: take average of the K style & content features from the style images
 
         ### Get style feature from style image *list*
         # style_images are in the shape of (N, K, C, H, W)
-        style_style_feature_list=[]
-        for k in range(style_images):
-            style_image_batch = style_images[:, k, :, :, :]
-            style_style_feature, _, style_style_residual_features = self.style_encoder(style_image_batch)
+        # style_style_feature_list=[]
+        # for k in range(style_images.size(1)):
+        #     style_image_batch = style_images[:, k, :, :, :]
+        #     style_style_feature, _, style_style_residual_features = self.style_encoder(style_image_batch)
+        #     style_style_feature_list.append(style_style_feature)
+
+        ### Get content feature from content image
+        # content_content_feture, content_content_residual_features = self.content_encoder(content_images)
+        # content_content_residual_features.append(content_content_feture)
+
+        ### Get content feature from style image *list*
+        # style_content_residual_features_list=[]
+        # for k in range(style_images):
+        #     style_image_batch = style_images[:, k, :, :, :]
+        #     style_content_feature, style_content_residual_features = self.content_encoder(style_image_batch)
+        #     style_content_residual_features.append(style_content_feature)
+        #     style_content_residual_features_list.append(style_content_residual_features)
+
+        ## Implementation 2: take learned feature of the K style & content features from the style images
+
+        ### Initialization
+        style_batch = style_images
+
+        ### Get style feature from style image *list*
+        # style_batch are in the shape of (N, K, C, H, W)
+        style_style_feature_list = []
+        for style_batch_item in style_batch:
+            style_style_feature, _, _ = self.style_encoder(style_batch_item)
             style_style_feature_list.append(style_style_feature)
+        style_style_feature_batch = torch.stack(style_style_feature_list)
 
         ### Get content feature from content image
         content_content_feture, content_content_residual_features = self.content_encoder(content_images)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
-        style_content_residual_features_list=[]
-        for k in range(style_images):
-            style_image_batch = style_images[:, k, :, :, :]
-            style_content_feature, style_content_residual_features = self.content_encoder(style_image_batch)
+        style_content_residual_features_batch = []
+        for style_batch_item in style_batch:
+            style_content_feature, style_content_residual_features = self.content_encoder(style_batch_item)
             style_content_residual_features.append(style_content_feature)
-            style_content_residual_features_list.append(style_content_residual_features)
+            style_content_residual_features_batch.append(style_content_residual_features)
+        style_content_residual_features_batch_transpose = []
+        for fs_idx in range(len(style_content_residual_features_batch[0])):
+            # stack Fs_i columns
+            Fs_i = [Ic_i[fs_idx] for Ic_i in style_content_residual_features_batch]
+            style_content_residual_features_batch_transpose.append(torch.stack(Fs_i))
 
-        # Part II: infer *one* style_style_feature from style_style_feature_list (list of K items)
-        # and infer *one* style_content_residual_features from style_content_residual_features_list (list of K items)
+        # Part II: infer *one* style_style_feature from K of them
+        # and infer *one* style_content_residual_features from K of them
 
         ## Implementation 1: take average of the K style & content features from the style images
         ### Find the average style feature
-        style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
+        # style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
         ### Find the average content residual features
         # style_content_residual_features[i][j]: i = index of the style image, j = index of residual feature (fs) of its content encoding
         # average_features = []
@@ -85,21 +114,16 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         # style_content_residual_features = average_features
 
         ## Implementation 2: take learned feature of the K style & content features from the style images
-        fs1_list = [residual_features_i[0] for residual_features_i in style_content_residual_features_list]
-        fs2_list = [residual_features_i[1] for residual_features_i in style_content_residual_features_list]
-        fs3_list = [residual_features_i[2] for residual_features_i in style_content_residual_features_list]
-        fs4_list = [residual_features_i[3] for residual_features_i in style_content_residual_features_list]
-        fs5_list = [residual_features_i[4] for residual_features_i in style_content_residual_features_list]
-        style_style_feature, style_content_residual_features = self.k_feature_extractor(
-            style_features=torch.stack(style_style_feature_list),
-            content_features=[
-                torch.stack(fs1_list),
-                torch.stack(fs2_list),
-                torch.stack(fs3_list),
-                torch.stack(fs4_list),
-                torch.stack(fs5_list),
-            ]
+        style_style_feature, style_content_residual_features_transpose = self.k_feature_extractor(
+            style_features=style_style_feature_batch,
+            content_features=style_content_residual_features_batch_transpose
         )
+
+        style_content_residual_features = []
+        for batch_idx in range(len(style_content_residual_features_transpose[0])):
+            # stack Ic_i' columns
+            Ic_i = [Fs_i[batch_idx] for Fs_i in style_content_residual_features_transpose]
+            style_content_residual_features.append(Ic_i)
 
         # Part III: Do the rest and run the UNet
 
@@ -164,37 +188,58 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # style_content_feature, style_content_residual_features = self.content_encoder(style_images)
         # style_content_residual_features.append(style_content_feature)
 
-        ## New implementation: K style images
+        ## Implementation 1: take average of the K style & content features from the style images
 
         ### Initialization
-        style_image_list = style_images
+        # style_image_list = style_images
+        # K = len(style_images) // 2
+        # uncond_style_list = style_images[0 : K]
+        # cond_style_list = style_images[K :]
 
         ### Get style feature from style image *list*
-        # style_image_list[0] is a tensor of unconditional style images
-        # style_image_list[1] is a tensor of conditional style images
-        style_style_feature_list=[]
-        for uncond_style, cond_style in zip(style_image_list[0], style_image_list[1]):
-            style_style_feature, _, style_style_residual_features = self.style_encoder(torch.stack([uncond_style, cond_style]))
-            style_style_feature_list.append(style_style_feature)
+        # style_style_feature_list=[]
+        # for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
+        #     style_style_feature, _, style_style_residual_features = self.style_encoder(torch.stack([uncond_style, cond_style]))
+        #     style_style_feature_list.append(style_style_feature)
+
+        ### Get content feature from content image
+        # content_content_feture, content_content_residual_features = self.content_encoder(content_images)
+        # content_content_residual_features.append(content_content_feture)
+
+        ### Get content feature from style image *list*
+        # style_content_residual_features_list=[]
+        # for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
+        #     style_content_feature, style_content_residual_features = self.content_encoder(torch.stack([uncond_style, cond_style]))
+        #     style_content_residual_features.append(style_content_feature)
+        #     style_content_residual_features_list.append(style_content_residual_features)
+
+        ## Implementation 2: take learned feature of the K style & content features from the style images
+        
+        ### Initialization
+        K = len(style_images) // 2
+        uncond_style_batch = style_images[0 : K]
+        cond_style_batch = style_images[K :]
+
+        ### Get style feature from style image *list*
+        uncond_style_style_feature, _, _ = self.style_encoder(uncond_style_batch)
+        cond_style_style_feature, _, _ = self.style_encoder(cond_style_batch)
 
         ### Get content feature from content image
         content_content_feture, content_content_residual_features = self.content_encoder(content_images)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
-        style_content_residual_features_list=[]
-        for uncond_style, cond_style in zip(style_image_list[0], style_image_list[1]):
-            style_content_feature, style_content_residual_features = self.content_encoder(torch.stack([uncond_style, cond_style]))
-            style_content_residual_features.append(style_content_feature)
-            style_content_residual_features_list.append(style_content_residual_features)
+        uncond_style_content_feature, uncond_style_content_residual_features = self.content_encoder(uncond_style_batch)
+        uncond_style_content_residual_features.append(uncond_style_content_feature)
+        cond_style_content_feature, cond_style_content_residual_features = self.content_encoder(cond_style_batch)
+        cond_style_content_residual_features.append(cond_style_content_feature)
 
-
-        # Part II: infer *one* style_style_feature from style_style_feature_list (list of K items)
-        # and infer *one* style_content_residual_features from style_content_residual_features_list (list of K items)
+        # Part II: infer *one* style_style_feature from K of them
+        # and infer *one* style_content_residual_features from K of them
 
         ## Implementation 1: take average of the K style & content features from the style images
         ### Find the average style feature
-        style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
+        # style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
         ### Find the average content residual features
         # style_content_residual_features[i][j]: i = index of the style image, j = index of residual feature (fs) of its content encoding
         # average_features = []
@@ -204,20 +249,14 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # style_content_residual_features = average_features
 
         ## Implementation 2: take learned feature of the K style & content features from the style images
-        fs1_list = [residual_features_i[0] for residual_features_i in style_content_residual_features_list]
-        fs2_list = [residual_features_i[1] for residual_features_i in style_content_residual_features_list]
-        fs3_list = [residual_features_i[2] for residual_features_i in style_content_residual_features_list]
-        fs4_list = [residual_features_i[3] for residual_features_i in style_content_residual_features_list]
-        fs5_list = [residual_features_i[4] for residual_features_i in style_content_residual_features_list]
+        combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
+        combined_style_content_residual_features = [
+            torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
+            for i in range(len(uncond_style_content_residual_features))
+        ]
         style_style_feature, style_content_residual_features = self.k_feature_extractor(
-            style_features=torch.stack(style_style_feature_list),
-            content_features=[
-                torch.stack(fs1_list),
-                torch.stack(fs2_list),
-                torch.stack(fs3_list),
-                torch.stack(fs4_list),
-                torch.stack(fs5_list),
-            ]
+            style_features=combined_style_style_feature,
+            content_features=combined_style_content_residual_features
         )
 
         # Part III: Do the rest and run the UNet
