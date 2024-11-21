@@ -67,7 +67,7 @@ if __name__ == '__main__':
             # run fontdiffuer
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/style_images',
+                                        style_image_path='outputs/style_images',
                                         save_image_dir=args.save_image_dir,
                                         sampling_step=20,
                                         guidance_scale=7.5,

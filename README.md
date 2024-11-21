@@ -146,7 +146,7 @@ After the phase 2 training, you should put the trained checkpoint files (`unet.p
 sh train_phase_2.sh
 ```
 - `phase_2`: Tag to phase 2 training.
-- `phase_1_ckpt_dir`: The model checkpoints saving directory after phase 1 training.
+- `last_phase_ckpt_dir`: The model checkpoints saving directory after phase 1 training.
 - `scr_ckpt_path`: The ckpt path of pre-trained SCR module. You can download it from above 🔥Model Zoo.
 - `sc_coefficient`: The coefficient of style contrastive loss for supervision.
 - `num_neg`: The number of negative samples, default to be `16`.

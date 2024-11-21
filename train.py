@@ -77,10 +77,16 @@ def main():
     k_feature_extractor = build_k_feature_extractor(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
     if args.training_phase >= 2:
-        unet.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/unet.pth"))
-        style_encoder.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/style_encoder.pth"))
-        content_encoder.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/content_encoder.pth"))
-        # k_feature_extractor.load_state_dict(torch.load(f"{args.phase_1_ckpt_dir}/k_feature_extractor.pth"))
+        unet.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/unet.pth"))
+        style_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/style_encoder.pth"))
+        content_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/content_encoder.pth"))
+        # k_feature_extractor.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/k_feature_extractor.pth"))
+
+    # In phase 3, freeze corresponding model parameters to train the K-feature extractor
+    if args.training_phase >= 3:
+        unet.requires_grad_(False)
+        style_encoder.requires_grad_(False)
+        content_encoder.requires_grad_(False)
 
     model = FontDiffuserModel(
         unet=unet,
@@ -91,7 +97,7 @@ def main():
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
 
-    # Load SCR module for supervision
+    # In phase 2, load SCR module for supervision
     if args.training_phase >= 2:
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))

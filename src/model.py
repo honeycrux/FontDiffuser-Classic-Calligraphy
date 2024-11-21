@@ -90,7 +90,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         fs3_list = [residual_features_i[2] for residual_features_i in style_content_residual_features_list]
         fs4_list = [residual_features_i[3] for residual_features_i in style_content_residual_features_list]
         fs5_list = [residual_features_i[4] for residual_features_i in style_content_residual_features_list]
-        style_style_feature, style_content_residual_features = self.style_feature_extractor(
+        style_style_feature, style_content_residual_features = self.k_feature_extractor(
             style_features=torch.stack(style_style_feature_list),
             content_features=[
                 torch.stack(fs1_list),
@@ -209,7 +209,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         fs3_list = [residual_features_i[2] for residual_features_i in style_content_residual_features_list]
         fs4_list = [residual_features_i[3] for residual_features_i in style_content_residual_features_list]
         fs5_list = [residual_features_i[4] for residual_features_i in style_content_residual_features_list]
-        style_style_feature, style_content_residual_features = self.style_feature_extractor(
+        style_style_feature, style_content_residual_features = self.k_feature_extractor(
             style_features=torch.stack(style_style_feature_list),
             content_features=[
                 torch.stack(fs1_list),
