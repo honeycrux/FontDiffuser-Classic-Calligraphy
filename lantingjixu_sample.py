@@ -57,7 +57,7 @@ if __name__ == '__main__':
     total_time = 0      
     total_sample = 0        
 
-    no_existence_check = False      # set to True to skip the existence check
+    no_existence_check = True      # set to True to skip the existence check
 
     for i, character in enumerate(characters):
         if not no_existence_check and os.path.exists(f'{args.save_image_dir}/{character}.png'):

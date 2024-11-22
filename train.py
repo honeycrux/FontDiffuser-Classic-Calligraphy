@@ -172,7 +172,7 @@ def main():
         for step, samples in enumerate(train_dataloader):
             model.train()
             content_images = samples["content_image"]
-            style_images = samples["style_image"]
+            style_images = samples["style_images"]
             target_images = samples["target_image"]
             nonorm_target_images = samples["nonorm_target_image"]
             
@@ -181,7 +181,7 @@ def main():
                 noise = torch.randn_like(target_images)
                 bsz = target_images.shape[0]
                 # Sample a random timestep for each image
-                timesteps = torch.randint(0, noise_scheduler.num_train_timesteps, (bsz,), device=target_images.device)
+                timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=target_images.device)
                 timesteps = timesteps.long()
 
                 # Add noise to the target_images according to the noise magnitude at each timestep
@@ -260,10 +260,10 @@ def main():
                     if global_step % args.ckpt_interval == 0:
                         save_dir = f"{args.output_dir}/global_step_{global_step}"
                         os.makedirs(save_dir, exist_ok=True)
-                        torch.save(model.unet.state_dict(), f"{save_dir}/unet.pth")
-                        torch.save(model.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
-                        torch.save(model.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
-                        torch.save(model.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
+                        torch.save(model.config.unet.state_dict(), f"{save_dir}/unet.pth")
+                        torch.save(model.config.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
+                        torch.save(model.config.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
+                        torch.save(model.config.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
                         torch.save(model, f"{save_dir}/total_model.pth")
                         logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
                         print("Save the checkpoint on global step {}".format(global_step))

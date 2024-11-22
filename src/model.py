@@ -79,25 +79,25 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         # style_batch are in the shape of (N, K, C, H, W)
         style_style_feature_list = []
         for style_batch_item in style_batch:
-            style_style_feature, _, _ = self.style_encoder(style_batch_item)
+            style_style_feature, _, _ = self.config.style_encoder(style_batch_item)
             style_style_feature_list.append(style_style_feature)
         style_style_feature_batch = torch.stack(style_style_feature_list)
 
         ### Get content feature from content image
-        content_content_feture, content_content_residual_features = self.content_encoder(content_images)
+        content_content_feture, content_content_residual_features = self.config.content_encoder(content_images)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
-        style_content_residual_features_batch = []
-        for style_batch_item in style_batch:
-            style_content_feature, style_content_residual_features = self.content_encoder(style_batch_item)
-            style_content_residual_features.append(style_content_feature)
-            style_content_residual_features_batch.append(style_content_residual_features)
         style_content_residual_features_batch_transpose = []
-        for fs_idx in range(len(style_content_residual_features_batch[0])):
+        for style_batch_item in style_batch:
+            style_content_feature, style_content_residual_features = self.config.content_encoder(style_batch_item)
+            style_content_residual_features.append(style_content_feature)
+            style_content_residual_features_batch_transpose.append(style_content_residual_features)
+        style_content_residual_features_batch = []
+        for fs_idx in range(len(style_content_residual_features_batch_transpose[0])):
             # stack Fs_i columns
-            Fs_i = [Ic_i[fs_idx] for Ic_i in style_content_residual_features_batch]
-            style_content_residual_features_batch_transpose.append(torch.stack(Fs_i))
+            Fs_i = [Ic_i[fs_idx] for Ic_i in style_content_residual_features_batch_transpose]
+            style_content_residual_features_batch.append(torch.stack(Fs_i))
 
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
@@ -114,16 +114,10 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         # style_content_residual_features = average_features
 
         ## Implementation 2: take learned feature of the K style & content features from the style images
-        style_style_feature, style_content_residual_features_transpose = self.k_feature_extractor(
+        style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
             style_features=style_style_feature_batch,
-            content_features=style_content_residual_features_batch_transpose
+            content_features=style_content_residual_features_batch
         )
-
-        style_content_residual_features = []
-        for batch_idx in range(len(style_content_residual_features_transpose[0])):
-            # stack Ic_i' columns
-            Ic_i = [Fs_i[batch_idx] for Fs_i in style_content_residual_features_transpose]
-            style_content_residual_features.append(Ic_i)
 
         # Part III: Do the rest and run the UNet
 
@@ -133,7 +127,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         input_hidden_states = [style_style_feature, content_content_residual_features, \
                                style_hidden_states, style_content_residual_features]
 
-        out = self.unet(
+        out = self.config.unet(
             x_t, 
             timesteps, 
             encoder_hidden_states=input_hidden_states,
@@ -221,17 +215,17 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         cond_style_batch = style_images[K :]
 
         ### Get style feature from style image *list*
-        uncond_style_style_feature, _, _ = self.style_encoder(uncond_style_batch)
-        cond_style_style_feature, _, _ = self.style_encoder(cond_style_batch)
+        uncond_style_style_feature, _, _ = self.config.style_encoder(uncond_style_batch)
+        cond_style_style_feature, _, _ = self.config.style_encoder(cond_style_batch)
 
         ### Get content feature from content image
-        content_content_feture, content_content_residual_features = self.content_encoder(content_images)
+        content_content_feture, content_content_residual_features = self.config.content_encoder(content_images)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
-        uncond_style_content_feature, uncond_style_content_residual_features = self.content_encoder(uncond_style_batch)
+        uncond_style_content_feature, uncond_style_content_residual_features = self.config.content_encoder(uncond_style_batch)
         uncond_style_content_residual_features.append(uncond_style_content_feature)
-        cond_style_content_feature, cond_style_content_residual_features = self.content_encoder(cond_style_batch)
+        cond_style_content_feature, cond_style_content_residual_features = self.config.content_encoder(cond_style_batch)
         cond_style_content_residual_features.append(cond_style_content_feature)
 
         # Part II: infer *one* style_style_feature from K of them
@@ -254,7 +248,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
             for i in range(len(uncond_style_content_residual_features))
         ]
-        style_style_feature, style_content_residual_features = self.k_feature_extractor(
+        style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
             style_features=combined_style_style_feature,
             content_features=combined_style_content_residual_features
         )
@@ -266,7 +260,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
 
         input_hidden_states = [style_style_feature, content_content_residual_features, style_hidden_states, style_content_residual_features]
 
-        out = self.unet(
+        out = self.config.unet(
             x_t, 
             timesteps, 
             encoder_hidden_states=input_hidden_states,
