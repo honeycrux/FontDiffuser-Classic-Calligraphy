@@ -66,10 +66,16 @@ def image_process(args, content_image=None, style_images=None):
             content_image_pil = None        # The content image of the PIL format
         style_images_dir = Path(args.style_image_path)      # The style image directory
         style_images = []       # The style images
-        for style_image_path in style_images_dir.iterdir():     # Iterate the style image directory
-            if style_image_path.is_file():      # If the style image path is a file
-                style_images.append(Image.open(style_image_path).convert('RGB'))        # Open the style image and append it to the style images
-        # style_images = Image.open(args.style_image_path).convert('RGB')
+        available_style_paths = []
+        for style_image_path in style_images_dir.iterdir():
+            if style_image_path.is_file():
+                available_style_paths.append(style_image_path)
+        if len(available_style_paths) < args.k_shot:
+            raise ValueError(f"k_shot is set to {args.k_shot}, but the number of style images is less than {args.k_shot}")
+        for _ in range(args.k_shot):
+            style_image_path = random.choice(available_style_paths)
+            style_image = Image.open(style_image_path).convert("RGB")
+            style_images.append(style_image)
     else:                   # If in demo mode
         assert style_images is not None, "The style image should not be None."
         if args.character_input:
@@ -101,6 +107,8 @@ def image_process(args, content_image=None, style_images=None):
     content_image = content_inference_transforms(content_image)[None, :]
     # Apply the transform to the style image
     style_images = [style_inference_transforms(style_image)[None, :] for style_image in style_images]
+    # Combine the style images into a single tensor
+    style_images = torch.cat(style_images, dim=0)
 
     return content_image, style_images, content_image_pil
 
@@ -157,7 +165,7 @@ def sampling(args, pipe, content_image=None, style_images=None):
 
     with torch.no_grad():       # Disable the gradient calculation
         content_image = content_image.to(args.device)
-        style_images = torch.cat(style_images).to(args.device)
+        style_images = style_images.to(args.device)
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
         # Generate the image

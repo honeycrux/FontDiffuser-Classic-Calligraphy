@@ -69,6 +69,8 @@ class FontDataset(Dataset):
         # My implementation: Get K style images of the same style
         choose_style_image_names = []
         # Choose style images
+        if len(images_related_style) < self.k_shot:
+            raise ValueError(f"k_shot is set to {self.k_shot}, but the number of style images is less than {self.k_shot}")
         for i in range(self.k_shot):
             style_image_path = random.choice(images_related_style)
             choose_style_image_names.append(style_image_path)
