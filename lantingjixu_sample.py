@@ -4,6 +4,7 @@ from sample import (arg_parse,
                     load_fontdiffuer_pipeline)
 import os
 import time
+import torch
 
 def fetch_lantingjixu_chars():
     with open('lantingjixu_test.txt', 'r', encoding='utf-8') as text_file:
@@ -45,9 +46,10 @@ if __name__ == '__main__':
     args.guidance_type = 'classifier-free'
     args.algorithm_type = 'dpmsolver++'
 
+    args.save_image = False
     args.save_image_dir = 'outputs/few_shot'
 
-    # args.device = "cpu"
+    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
     # load fontdiffuer pipeline
     pipe = load_fontdiffuer_pipeline(args=args)
@@ -57,7 +59,7 @@ if __name__ == '__main__':
     total_time = 0      
     total_sample = 0        
 
-    no_existence_check = True      # set to True to skip the existence check
+    no_existence_check = True
 
     for i, character in enumerate(characters):
         if not no_existence_check and os.path.exists(f'{args.save_image_dir}/{character}.png'):
@@ -73,11 +75,12 @@ if __name__ == '__main__':
                                         guidance_scale=7.5,
                                         batch_size=1,
                                         seed=0)
+            out_image.save(f'{args.save_image_dir}/{character}.png')
             end_time = time.time()
+
             print(f"Finish the sampling process, costing time {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            out_image.save(f'{args.save_image_dir}/{character}.png')
             print(f'[{i+1}/{len(characters)}] created {args.save_image_dir}/{character}.png')
 
     print(f"Total sampling time: {total_time}s")

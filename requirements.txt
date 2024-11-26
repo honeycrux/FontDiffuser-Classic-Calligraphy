@@ -8,3 +8,9 @@ pygame
 opencv-python
 info-nce-pytorch
 kornia
+lpips
+
+# torcheval
+# https://github.com/pytorch/torcheval/blob/main/dev-requirements.txt
+torcheval-nightly
+scikit-image==0.18.3
