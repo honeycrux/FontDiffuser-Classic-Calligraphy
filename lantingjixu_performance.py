@@ -8,6 +8,42 @@ from PIL import Image
 
 IMAGE_EXTENSIONS = {"bmp", "jpg", "jpeg", "pgm", "png", "ppm", "tif", "tiff", "webp"}
 
+class LantingjixuPerformance:
+    def __init__(self, device):
+        self.device = device
+        self.fid_metric = FrechetInceptionDistance(device=device)
+        self.ssim_metric = StructuralSimilarity(device=device)
+        self.lpips_metric = PerceptualSimilarity(device=device)
+        self.l1_metric = MeanAbsoluteError(device=device)
+
+    def update(self, comparison_image_batch, ground_truth_image_batch):
+        if comparison_image_batch.device != self.device:
+            comparison_image_batch = comparison_image_batch.to(self.device)
+        if ground_truth_image_batch.device != self.device:
+            ground_truth_image_batch = ground_truth_image_batch.to(self.device)
+
+        self.fid_metric.update(comparison_image_batch, is_real=False)
+        self.fid_metric.update(ground_truth_image_batch, is_real=True)
+        self.ssim_metric.update(comparison_image_batch, ground_truth_image_batch)
+        self.lpips_metric.update(comparison_image_batch, ground_truth_image_batch)
+
+        for i in range(ground_truth_image_batch.shape[0]):
+            for j in range(ground_truth_image_batch.shape[1]):
+                self.l1_metric.update(comparison_image_batch[i][j], ground_truth_image_batch[i][j])
+
+    def compute(self):
+        fid_value = self.fid_metric.compute()
+        ssim_value = self.ssim_metric.compute()
+        lpips_value = self.lpips_metric.compute()
+        l1_value = self.l1_metric.compute()
+
+        return {
+            "fid": fid_value,
+            "ssim": ssim_value,
+            "lpips": lpips_value,
+            "l1": l1_value
+        }
+
 if __name__ == '__main__':
     comparison_dataset_dir = 'outputs/original'
     ground_truth_dataset_dir = 'outputs/target'
@@ -23,6 +59,8 @@ if __name__ == '__main__':
     ground_truth_dataset_dir_path = Path(ground_truth_dataset_dir)
 
     toTensor = TF.ToTensor()
+
+    performance = LantingjixuPerformance(device=device)
 
     for comparison_file in comparison_dataset_dir_path.iterdir():
         if comparison_file.suffix.lower().lstrip('.') in IMAGE_EXTENSIONS:
@@ -46,22 +84,12 @@ if __name__ == '__main__':
             comparison_image_batch = comparison_image.unsqueeze(dim=0)
 
             # Update metrics
-            fid_metric.update(comparison_image_batch, is_real=False)
-            fid_metric.update(ground_truth_image_batch, is_real=True)
-            ssim_metric.update(comparison_image_batch, ground_truth_image_batch)
-            lpips_metric.update(comparison_image_batch, ground_truth_image_batch)
+            performance.update(comparison_image_batch, ground_truth_image_batch)
 
-            for i in range(ground_truth_image.shape[0]):
-                l1_metric.update(comparison_image[i], ground_truth_image[i])
+    perf = performance.compute()
+    fid_value, ssim_value, lpips_value, l1_value = perf['fid'], perf['ssim'], perf['lpips'], perf['l1']
 
-    fid_value = fid_metric.compute()
     print(f'FID value: {fid_value}')
-
-    ssim_value = ssim_metric.compute()
     print(f'SSIM value: {ssim_value}')
-
-    lpips_value = lpips_metric.compute()
     print(f'LPIPS value: {lpips_value}')
-
-    l1_value = l1_metric.compute()
     print(f'L1 value: {l1_value}')
