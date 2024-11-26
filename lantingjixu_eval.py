@@ -101,6 +101,7 @@ def main():
     dataset_dir = 'lantingxu_resized/by_char'
     output_dir = 'outputs/eval_original'
     few_shot = False
+    num_style_image = 1
 
     pipe = load_fontdiffuer_pipeline(args=args)
     toTensor = TF.ToTensor()
@@ -118,7 +119,7 @@ def main():
     rounds_info_saved, rounds_info_computation = generate_rounds(
         n_rounds=rounds,
         round_size=round_size,
-        num_style_image=1,
+        num_style_image=num_style_image,
         dataset_files=dataset_files
     )
     save_rounds_info(rounds_info_saved, output_dir)
@@ -178,7 +179,7 @@ def main():
     rounds_info_saved['overall_performance'] = overall_performance_result
     save_rounds_info(rounds_info_saved, output_dir)
 
-    print("Evaluation finished. Overall performance:"
+    print("Evaluation finished. Overall performance: "
           f"fid: {overall_performance_result['fid']}, "
           f"ssim: {overall_performance_result['ssim']}, "
           f"lpips: {overall_performance_result['lpips']}, "
