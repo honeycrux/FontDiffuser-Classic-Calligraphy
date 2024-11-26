@@ -38,10 +38,10 @@ class LantingjixuPerformance:
         l1_value = self.l1_metric.compute()
 
         return {
-            "fid": fid_value,
-            "ssim": ssim_value,
-            "lpips": lpips_value,
-            "l1": l1_value
+            "fid": fid_value.item(),
+            "ssim": ssim_value.item(),
+            "lpips": lpips_value.item(),
+            "l1": l1_value.item(),
         }
 
 if __name__ == '__main__':
