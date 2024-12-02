@@ -45,7 +45,7 @@ if __name__ == '__main__':
     args.guidance_type = 'classifier-free'
     args.algorithm_type = 'dpmsolver++'
 
-    args.save_image_dir = 'outputs/original'
+    args.save_image_dir = 'outputs/ref_sel'
 
     # args.device = "cpu"
 
