@@ -1,1 +1,12 @@
-* text=auto eol=lf
+# Autodetect text files
+* text=auto
+
+# Files that always have LF line endings on checkout
+*.sh text eol=lf
+*.py text eol=lf
+
+# Binary files that should not be modified
+*.jpg binary
+*.png binary
+*.pth binary
+*.ttf binary
