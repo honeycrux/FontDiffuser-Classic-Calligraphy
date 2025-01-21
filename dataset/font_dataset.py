@@ -17,11 +17,12 @@ def get_nonorm_transform(resolution):
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, training_phase, transforms=None):
+    def __init__(self, args, phase, training_phase, validate_set_size=None, transforms=None):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
         self.training_phase = training_phase
+        self.validate_set_size = validate_set_size
         self.scr = training_phase >= 2
         self.k_shot = args.k_shot
         if self.scr:
@@ -37,9 +38,13 @@ class FontDataset(Dataset):
         # images with related style  
         self.style_to_images = {}
         target_image_dir = f"{self.root}/{self.phase}/TargetImage"
+        number_of_styles = len(os.listdir(target_image_dir))
+        limit_per_style = (self.validate_set_size // number_of_styles) if self.validate_set_size is not None and self.phase == "validate" else None
         for style in os.listdir(target_image_dir):
             images_related_style = []
-            for img in os.listdir(f"{target_image_dir}/{style}"):
+            for idx, img in enumerate(os.listdir(f"{target_image_dir}/{style}")):
+                if limit_per_style is not None and idx >= limit_per_style:
+                    break
                 img_path = f"{target_image_dir}/{style}/{img}"
                 self.target_images.append(img_path)
                 images_related_style.append(img_path)
@@ -70,7 +75,7 @@ class FontDataset(Dataset):
         choose_style_image_names = []
         # Choose style images
         if len(images_related_style) < self.k_shot:
-            raise ValueError(f"k_shot is set to {self.k_shot}, but the number of style images is less than {self.k_shot}")
+            raise ValueError(f"k_shot is set to {self.k_shot}, but the number of style images ({len(images_related_style)}) is less than {self.k_shot}")
         for i in range(self.k_shot):
             style_image_path = random.choice(images_related_style)
             choose_style_image_names.append(style_image_path)
@@ -105,10 +110,13 @@ class FontDataset(Dataset):
             style_list.pop(style_index)
             choose_neg_names = []
             for i in range(self.num_neg):
+                if len(style_list) < 1:
+                    # choose less than num_neg if there is not enough other styles
+                    break
                 choose_style = random.choice(style_list)
                 choose_index = style_list.index(choose_style)
                 style_list.pop(choose_index)
-                choose_neg_name = f"{self.root}/train/TargetImage/{choose_style}/{choose_style}+{content}.png"
+                choose_neg_name = f"{self.root}/{self.phase}/TargetImage/{choose_style}/{choose_style}+{content}.png"
                 choose_neg_names.append(choose_neg_name)
 
             # Load neg_images

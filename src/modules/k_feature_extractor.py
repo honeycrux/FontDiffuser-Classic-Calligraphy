@@ -31,7 +31,7 @@ class KFeatureExtractorUnit_Conv(nn.Module):
         x = self.conv2(x)
         x = self.act2(x)
         x = self.conv3(x)
-        x = x.squeeze(dim=-1) # (B, C, H, W, 1) -> (B, C, H, W)
+        x = x.squeeze(dim=1) # (B, 1, C, H, W) -> (B, C, H, W)
         return x
 
 class KFeatureExtractorUnit_FC(nn.Module):
@@ -61,15 +61,68 @@ class KFeatureExtractorUnit_FC(nn.Module):
 
         return x
 
+class KFeatureExtractorUnit_X1(nn.Module):
+    def __init__(self, K, singleton_shape):
+        super(KFeatureExtractorUnit_X1, self).__init__()
+
+        # self.K = K
+        # self.singleton_shape = singleton_shape
+        # self.singleton_size = int(torch.prod(torch.tensor(self.singleton_shape)))
+
+        self.conv1 = nn.Conv3d(in_channels=K, out_channels=32, kernel_size=3, padding=1)
+        self.act1 = nn.ReLU()
+
+        self.conv2 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.act2 = nn.ReLU()
+
+        self.fc3 = nn.Linear(in_features=64, out_features=128)
+        self.act3 = nn.ReLU()
+
+        self.fc4 = nn.Linear(in_features=128, out_features=128)
+        self.act4 = nn.ReLU()
+
+        self.fc5 = nn.Linear(in_features=128, out_features=64)
+        self.act5 = nn.ReLU()
+
+        self.conv6 = nn.Conv3d(in_channels=64, out_channels=32, kernel_size=3, padding=1)
+        self.act6 = nn.ReLU()
+
+        self.conv7 = nn.Conv3d(in_channels=32, out_channels=1, kernel_size=3, padding=1)
+        self.act7 = nn.ReLU()
+
+    def forward(self, style_features: torch.Tensor):
+        permute_in = (0, 2, 3, 4, 1) # (B, K, C, H, W) -> (B, C, H, W, K)
+        permute_out = (0, 4, 1, 2, 3) # (B, C, H, W, K) -> (B, K, C, H, W)
+
+        x = style_features
+        x = self.conv1(x)
+        x = self.act1(x)
+        x = self.conv2(x)
+        x = self.act2(x)
+        x = x.permute(permute_in)
+        x = self.fc3(x)
+        x = self.act3(x)
+        x = self.fc4(x)
+        x = self.act4(x)
+        x = self.fc5(x)
+        x = self.act5(x)
+        x = x.permute(permute_out)
+        x = self.conv6(x)
+        x = self.act6(x)
+        x = self.conv7(x)
+        x = self.act7(x)
+        x = x.squeeze(dim=1) # (B, 1, C, H, W) -> (B, C, H, W)
+        return x
+
 class KFeatureExtractor(nn.Module):
     def __init__(self, K):
         super(KFeatureExtractor, self).__init__()
-        self.style_feature_extractor = KFeatureExtractorUnit_FC(K=K, singleton_shape=style_feature_extractor_input_singleton)
-        self.content_feature_extractor1 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
-        self.content_feature_extractor2 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
-        self.content_feature_extractor3 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
-        self.content_feature_extractor4 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
-        self.content_feature_extractor5 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
+        self.style_feature_extractor = KFeatureExtractorUnit_X1(K=K, singleton_shape=style_feature_extractor_input_singleton)
+        self.content_feature_extractor1 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
+        self.content_feature_extractor2 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
+        self.content_feature_extractor3 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
+        self.content_feature_extractor4 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
+        self.content_feature_extractor5 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
 
     def forward(self, style_features: torch.Tensor, content_features: list[torch.Tensor]):
         style_features = self.style_feature_extractor(style_features)

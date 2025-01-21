@@ -82,12 +82,6 @@ def main():
         content_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/content_encoder.pth"))
         # k_feature_extractor.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/k_feature_extractor.pth"))
 
-    # In phase 3, freeze corresponding model parameters to train the K-feature extractor
-    if args.training_phase >= 3:
-        unet.requires_grad_(False)
-        style_encoder.requires_grad_(False)
-        content_encoder.requires_grad_(False)
-
     model = FontDiffuserModel(
         unet=unet,
         style_encoder=style_encoder,
@@ -102,6 +96,12 @@ def main():
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
         scr.requires_grad_(False)
+
+    # In phase 3, freeze corresponding model parameters to train the K-feature extractor
+    if args.training_phase >= 3:
+        unet.requires_grad_(False)
+        style_encoder.requires_grad_(False)
+        content_encoder.requires_grad_(False)
 
     # Load the datasets
     content_transforms = transforms.Compose(
@@ -129,6 +129,17 @@ def main():
         training_phase=args.training_phase)
     train_dataloader = torch.utils.data.DataLoader(
         train_font_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
+    validate_font_dataset = FontDataset(
+        args=args,
+        phase='validate', 
+        transforms=[
+            content_transforms, 
+            style_transforms, 
+            target_transforms],
+        training_phase=args.training_phase,
+        validate_set_size=args.validate_set_size)
+    validate_dataloader = torch.utils.data.DataLoader(
+        validate_font_dataset, shuffle=True, batch_size=args.validate_batch_size, collate_fn=CollateFN())
     
     # Build optimizer and learning rate
     if args.scale_lr:
@@ -147,11 +158,79 @@ def main():
         num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,)
 
     # Accelerate preparation
-    model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, lr_scheduler)
+    model, optimizer, train_dataloader, validate_dataloader, lr_scheduler = accelerator.prepare(
+        model, optimizer, train_dataloader, validate_dataloader, lr_scheduler)
     ## move scr module to the target deivces
     if args.training_phase >= 2:
         scr = scr.to(accelerator.device)
+
+    def compute_loss(samples):
+        content_images = samples["content_image"]
+        style_images = samples["style_images"]
+        target_images = samples["target_image"]
+        nonorm_target_images = samples["nonorm_target_image"]
+
+        # Sample noise that we'll add to the samples
+        noise = torch.randn_like(target_images)
+        bsz = target_images.shape[0]
+        # Sample a random timestep for each image
+        timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=target_images.device)
+        timesteps = timesteps.long()
+
+        # Add noise to the target_images according to the noise magnitude at each timestep
+        # (this is the forward diffusion process)
+        noisy_target_images = noise_scheduler.add_noise(target_images, noise, timesteps)
+
+        # Classifier-free training strategy
+        context_mask = torch.bernoulli(torch.zeros(bsz) + args.drop_prob)
+        for i, mask_value in enumerate(context_mask):
+            if mask_value==1:
+                content_images[i, :, :, :] = 1 # [N, C, H, W]
+                style_images[i, :, :, :, :] = 1 # k-shot: [N, K, C, H, W]
+
+        # Predict the noise residual and compute loss
+        noise_pred, offset_out_sum = model(
+            x_t=noisy_target_images, 
+            timesteps=timesteps, 
+            style_images=style_images,
+            content_images=content_images,
+            content_encoder_downsample_size=args.content_encoder_downsample_size)
+        diff_loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
+        offset_loss = offset_out_sum / 2
+        
+        # output processing for content perceptual loss
+        pred_original_sample_norm = x0_from_epsilon(
+            scheduler=noise_scheduler,
+            noise_pred=noise_pred,
+            x_t=noisy_target_images,
+            timesteps=timesteps)
+        pred_original_sample = reNormalize_img(pred_original_sample_norm)
+        norm_pred_ori = normalize_mean_std(pred_original_sample)
+        norm_target_ori = normalize_mean_std(nonorm_target_images)
+        percep_loss = perceptual_loss.calculate_loss(
+            generated_images=norm_pred_ori,
+            target_images=norm_target_ori,
+            device=target_images.device)
+        
+        loss = diff_loss + \
+                args.perceptual_coefficient * percep_loss + \
+                    args.offset_coefficient * offset_loss
+        
+        if args.training_phase >= 2:
+            neg_images = samples["neg_images"]
+            # sc loss
+            sample_style_embeddings, pos_style_embeddings, neg_style_embeddings = scr(
+                pred_original_sample_norm, 
+                target_images, 
+                neg_images, 
+                nce_layers=args.nce_layers)
+            sc_loss = scr.calculate_nce_loss(
+                sample_s=sample_style_embeddings,
+                pos_s=pos_style_embeddings,
+                neg_s=neg_style_embeddings)
+            loss += args.sc_coefficient * sc_loss
+
+        return loss
 
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
@@ -171,71 +250,8 @@ def main():
         train_loss = 0.0
         for step, samples in enumerate(train_dataloader):
             model.train()
-            content_images = samples["content_image"]
-            style_images = samples["style_images"]
-            target_images = samples["target_image"]
-            nonorm_target_images = samples["nonorm_target_image"]
-            
             with accelerator.accumulate(model):
-                # Sample noise that we'll add to the samples
-                noise = torch.randn_like(target_images)
-                bsz = target_images.shape[0]
-                # Sample a random timestep for each image
-                timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=target_images.device)
-                timesteps = timesteps.long()
-
-                # Add noise to the target_images according to the noise magnitude at each timestep
-                # (this is the forward diffusion process)
-                noisy_target_images = noise_scheduler.add_noise(target_images, noise, timesteps)
-
-                # Classifier-free training strategy
-                context_mask = torch.bernoulli(torch.zeros(bsz) + args.drop_prob)
-                for i, mask_value in enumerate(context_mask):
-                    if mask_value==1:
-                        content_images[i, :, :, :] = 1 # [N, C, H, W]
-                        style_images[i, :, :, :, :] = 1 # k-shot: [N, K, C, H, W]
-
-                # Predict the noise residual and compute loss
-                noise_pred, offset_out_sum = model(
-                    x_t=noisy_target_images, 
-                    timesteps=timesteps, 
-                    style_images=style_images,
-                    content_images=content_images,
-                    content_encoder_downsample_size=args.content_encoder_downsample_size)
-                diff_loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
-                offset_loss = offset_out_sum / 2
-                
-                # output processing for content perceptual loss
-                pred_original_sample_norm = x0_from_epsilon(
-                    scheduler=noise_scheduler,
-                    noise_pred=noise_pred,
-                    x_t=noisy_target_images,
-                    timesteps=timesteps)
-                pred_original_sample = reNormalize_img(pred_original_sample_norm)
-                norm_pred_ori = normalize_mean_std(pred_original_sample)
-                norm_target_ori = normalize_mean_std(nonorm_target_images)
-                percep_loss = perceptual_loss.calculate_loss(
-                    generated_images=norm_pred_ori,
-                    target_images=norm_target_ori,
-                    device=target_images.device)
-                
-                loss = diff_loss + \
-                        args.perceptual_coefficient * percep_loss + \
-                            args.offset_coefficient * offset_loss
-                
-                if args.training_phase >= 2:
-                    neg_images = samples["neg_images"]
-                    # sc loss
-                    sample_style_embeddings, pos_style_embeddings, neg_style_embeddings = scr(
-                        pred_original_sample_norm, 
-                        target_images, 
-                        neg_images, 
-                        nce_layers=args.nce_layers)
-                    sc_loss = scr.calculate_nce_loss(
-                        sample_s=sample_style_embeddings,
-                        pos_s=pos_style_embeddings,
-                        neg_s=neg_style_embeddings)
-                    loss += args.sc_coefficient * sc_loss
+                loss = compute_loss(samples)
 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
@@ -257,7 +273,7 @@ def main():
                 train_loss = 0.0
 
                 if accelerator.is_main_process:
-                    if global_step % args.ckpt_interval == 0:
+                    if global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps:
                         save_dir = f"{args.output_dir}/global_step_{global_step}"
                         os.makedirs(save_dir, exist_ok=True)
                         torch.save(model.config.unet.state_dict(), f"{save_dir}/unet.pth")
@@ -266,14 +282,36 @@ def main():
                         torch.save(model.config.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
                         torch.save(model, f"{save_dir}/total_model.pth")
                         logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
-                        print("Save the checkpoint on global step {}".format(global_step))
+                        progress_bar.write("Save the checkpoint on global step {}".format(global_step))
 
             logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-            if global_step % args.log_interval == 0:
-                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => train_loss = {loss}")
             progress_bar.set_postfix(**logs)
-            
-            # Quit
+
+            if global_step % args.log_interval == 0 or global_step >= args.max_train_steps:
+                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => train_loss = {loss}")
+
+            if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
+                # validation
+                progress_bar.write(f"Computing validation loss on global step {global_step}")
+                for step, samples in enumerate(validate_dataloader):
+                    model.eval()
+
+                    validation_losses = []
+
+                    with torch.no_grad():
+                        val_loss = compute_loss(samples)
+
+                        # loss = loss / args.gradient_accumulation_steps # not sure if this is necessary
+
+                    val_loss = accelerator.gather_for_metrics(val_loss) # not sure if this is necessary
+                    validation_losses.append(val_loss)
+
+                validation_loss = torch.stack(validation_losses).mean().item()
+                progress_bar.write(f"Validation loss: {validation_loss}")
+                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => validation_loss = {validation_loss}")
+                accelerator.log({"validation_loss": validation_loss}, step=global_step)
+
+        # Quit
             if global_step >= args.max_train_steps:
                 break
 
