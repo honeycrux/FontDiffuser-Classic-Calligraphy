@@ -6,9 +6,6 @@ accelerate launch train.py \
     --report_to="tensorboard" \
     --training_phase=3 \
     --last_phase_ckpt_dir="ckpt" \
-    --scr_ckpt_path="ckpt/scr_210000.pth" \
-    --sc_coefficient=0.01 \
-    --num_neg=16 \
     --resolution=96 \
     --style_image_size=96 \
     --content_image_size=96 \
@@ -17,14 +14,13 @@ accelerate launch train.py \
     --content_start_channel=64 \
     --style_start_channel=64 \
     --train_batch_size=16 \
-    --validate_batch_size=32 \
-    --validate_set_size=960 \
-    --validate_interval=100 \
+    --validate_batch_size=128 \
+    --validate_interval=1000 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
     --max_train_steps=30000 \
     --ckpt_interval=5000 \
-    --gradient_accumulation_steps=1 \
+    --gradient_accumulation_steps=4 \
     --log_interval=50 \
     --learning_rate=1e-5 \
     --lr_scheduler="constant" \
