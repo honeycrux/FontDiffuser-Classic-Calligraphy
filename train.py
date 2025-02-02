@@ -75,7 +75,7 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO)
 
-    # Ser training seed
+    # Set training seed
     if args.seed is not None:
         set_seed(args.seed)
 
@@ -99,13 +99,13 @@ def main():
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
 
-    # In phase 2, load SCR module for supervision
+    # If necessary, load SCR module for supervision
     if use_scr:
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
         scr.requires_grad_(False)
 
-    # In phase 3, freeze corresponding model parameters to train the K-feature extractor
+    # If necessary, freeze corresponding model parameters to train the K-feature extractor
     if freeze_basic_models:
         unet.requires_grad_(False)
         style_encoder.requires_grad_(False)
@@ -247,6 +247,13 @@ def main():
 
         return loss
 
+    def get_submodel(model, submodule_name):
+        # If the model is wrapped with DDP, we need to access the submodule with model.module
+        if hasattr(model, "module"):
+            return getattr(model.module.config, submodule_name)
+        # If the model is not wrapped with DDP, we can access the submodule directly
+        return getattr(model.config, submodule_name)
+
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
         accelerator.init_trackers(args.experience_name)
@@ -274,9 +281,8 @@ def main():
 
                 # Backpropagate
                 accelerator.backward(loss)
-                # if accelerator.sync_gradients:
-                #     accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -287,7 +293,7 @@ def main():
             if is_on_global_step:
                 global_step += 1
                 train_loss_value = sum(train_loss) / len(train_loss)
-                # progress_bar.write(f"Global Step: {global_step}, Train Loss: {train_loss_value}, Train Loss Size: {len(train_loss)}")
+                # progress_bar.write(f"Proc: {accelerator.process_index} Global Step: {global_step}, Train Loss: {train_loss_value}, Train Loss Size: {len(train_loss)}")
                 accelerator.log({"train_loss": train_loss_value}, step=global_step)
                 train_loss = []
 
@@ -312,10 +318,10 @@ def main():
                 if global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps:
                     save_dir = f"{args.output_dir}/global_step_{global_step}"
                     os.makedirs(save_dir, exist_ok=True)
-                    torch.save(model.module.config.unet.state_dict(), f"{save_dir}/unet.pth")
-                    torch.save(model.module.config.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
-                    torch.save(model.module.config.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
-                    torch.save(model.module.config.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
+                    torch.save(get_submodel(model, "unet").state_dict(), f"{save_dir}/unet.pth")
+                    torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
+                    torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
+                    torch.save(get_submodel(model, "k_feature_extractor").state_dict(), f"{save_dir}/k_feature_extractor.pth")
                     torch.save(model, f"{save_dir}/total_model.pth")
                     logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
                     progress_bar.write("Save the checkpoint on global step {}".format(global_step))

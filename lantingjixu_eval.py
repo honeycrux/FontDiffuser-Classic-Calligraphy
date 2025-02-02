@@ -11,7 +11,7 @@ import torchvision.transforms as TF
 from sample import (arg_parse, 
                     sampling,
                     load_fontdiffuer_pipeline)
-from lantingjixu_performance import LantingjixuPerformance
+from src.metrics.font_metrics import FontMetrics
 
 def run_fontdiffuer_demo(args,
                     pipe,
@@ -112,7 +112,7 @@ def main():
     total_time = 0
     total_rounds = 0
 
-    overall_performance = LantingjixuPerformance(device=args.device)
+    overall_performance = FontMetrics(device=args.device)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -138,7 +138,7 @@ def main():
         character_images = [Image.open(f).convert('RGB') for f in character_files]
         style_images = [Image.open(f).convert('RGB') for f in style_files]
         output_images: list[Image.Image] = []
-        round_performance = LantingjixuPerformance(device=args.device)
+        round_performance = FontMetrics(device=args.device)
 
         for character_file in character_files:
             character = character_file.stem
