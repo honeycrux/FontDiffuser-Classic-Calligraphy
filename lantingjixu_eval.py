@@ -1,3 +1,6 @@
+# This script is the whole evaluation process for the Lantingjixu dataset.
+# It generates a test profile and runs sampling, then calculates the FID, SSIM, LPIPS, and L1 metrics.
+
 import random
 import os
 import time
@@ -11,7 +14,7 @@ import torchvision.transforms as TF
 from sample import (arg_parse, 
                     sampling,
                     load_fontdiffuer_pipeline)
-from lantingjixu_performance import LantingjixuPerformance
+from src.metrics.font_metrics import FontMetrics
 
 def run_fontdiffuer_demo(args,
                     pipe,
@@ -34,7 +37,7 @@ def run_fontdiffuer_demo(args,
         args=args,
         pipe=pipe,
         content_image=content_image,
-        style_image=style_images if few_shot else style_images[0])
+        style_images=style_images if few_shot else style_images[0])
     return out_image
 
 def save_rounds_info(round_info: dict, output_dir: str):
@@ -98,7 +101,7 @@ def main():
     # evaluation parameters
     rounds = 13
     round_size = 13
-    dataset_dir = 'lantingxu_resized/by_char'
+    dataset_dir = 'lantingjixu_data/by_char'
     output_dir = 'outputs/eval_original'
     few_shot = False
     num_style_image = 1
@@ -112,7 +115,7 @@ def main():
     total_time = 0
     total_rounds = 0
 
-    overall_performance = LantingjixuPerformance(device=args.device)
+    overall_performance = FontMetrics(device=args.device)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -138,7 +141,7 @@ def main():
         character_images = [Image.open(f).convert('RGB') for f in character_files]
         style_images = [Image.open(f).convert('RGB') for f in style_files]
         output_images: list[Image.Image] = []
-        round_performance = LantingjixuPerformance(device=args.device)
+        round_performance = FontMetrics(device=args.device)
 
         for character_file in character_files:
             character = character_file.stem
