@@ -1,3 +1,10 @@
+# This script is provided by the FYP24 project group.
+# This script supports the Mean Absolute Error metric on mean_absolute_error.py.
+
+# This script is adapted from the original Mean Squared Error script provided by the TorchEval authors.
+# The original script can be found at
+# https://github.com/pytorch/torcheval/blob/2c7dfb3768335ad7438bfb9bbe5c050e3f0780dc/torcheval/metrics/functional/regression/mean_squared_error.py
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #

@@ -1,3 +1,6 @@
+# This script is provided by the FYP24 project group.
+# This script is an implementation of LPIPS using TorchEval Metric.
+
 from lpips import LPIPS
 from typing import Iterable, Optional, TypeVar
 import torch

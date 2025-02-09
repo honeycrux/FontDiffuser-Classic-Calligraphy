@@ -1,3 +1,7 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the sampling process of FontDiffuser.
+# For usage, also refer to lantingjixu_sample.py or scripts/sample_content_*.sh.
+
 import os
 import cv2
 import time

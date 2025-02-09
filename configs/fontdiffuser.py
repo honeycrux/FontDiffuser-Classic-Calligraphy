@@ -1,3 +1,7 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the configuration file for command line arguments available in FontDiffuser.
+# Also note that additional arguments for sampling are added in sample.py::arg_parse().
+
 import os
 import argparse
 

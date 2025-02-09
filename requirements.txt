@@ -12,5 +12,8 @@ lpips
 
 # torcheval
 # https://github.com/pytorch/torcheval/blob/main/dev-requirements.txt
-torcheval-nightly
+torcheval-nightly==2024.8.1
 scikit-image==0.18.3
+
+# tensorboard
+tensorflow<=2.17.1

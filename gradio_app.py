@@ -1,3 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
+
 import random
 import gradio as gr
 from sample import (arg_parse, 

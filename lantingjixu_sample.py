@@ -1,3 +1,8 @@
+# This script is provided by the FYP24 project group.
+# This script is for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
+# The ttf path, save path, text-to-generate path, and style image path can be configured in the main function.
+# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (lantingjixu_data/lantingjixu.txt) as the text-to-generate file.
+
 import random
 from sample import (arg_parse, 
                     sampling,
@@ -6,8 +11,8 @@ import os
 import time
 import torch
 
-def fetch_lantingjixu_chars():
-    with open('lantingjixu_test.txt', 'r', encoding='utf-8') as text_file:
+def load_text_to_generate(file_path):
+    with open(file_path, 'r', encoding='utf-8') as text_file:
         text = text_file.read()
         characters = list(set(text))
         return characters
@@ -51,11 +56,13 @@ if __name__ == '__main__':
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
+    # load characters to generate
+    text_to_generate_path = 'lantingjixu_test.txt'
+    characters = load_text_to_generate(text_to_generate_path)
+
     # load fontdiffuer pipeline
     pipe = load_fontdiffuer_pipeline(args=args)
 
-    # load lantingjixu sample
-    characters = fetch_lantingjixu_chars()
     total_time = 0
     total_sample = 0
 
@@ -68,7 +75,7 @@ if __name__ == '__main__':
             start_time = time.time()
             out_image = run_fontdiffuer(content_image_path=None,
                                         character=character,
-                                        style_image_path='data_examples/sampling/02348.png',
+                                        style_image_path='lantingjixu_data/by_id/02348.png',
                                         save_image_dir=args.save_image_dir,
                                         sampling_step=20,
                                         guidance_scale=7.5,

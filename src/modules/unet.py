@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 

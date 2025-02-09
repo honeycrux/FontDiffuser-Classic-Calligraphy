@@ -1,3 +1,7 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the training process of FontDiffuser.
+# For usage, also refer to scripts/train_phase_*.sh.
+
 import os
 import math
 import time

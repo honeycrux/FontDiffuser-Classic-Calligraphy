@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 from functools import partial
 
 import torch

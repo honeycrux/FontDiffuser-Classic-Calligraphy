@@ -1,3 +1,4 @@
+# This script is provided by the FYP24 project group.
 # This script is the whole evaluation process for the Lantingjixu dataset.
 # It generates a test profile and runs sampling, then calculates the FID, SSIM, LPIPS, and L1 metrics.
 
@@ -193,4 +194,5 @@ def main():
     print(f"Average round time: {0 if total_rounds == 0 else total_time/total_rounds}s")
 
 if __name__ == '__main__':
+    use_test_profile = "test-profile-2025-02-01"
     main()
