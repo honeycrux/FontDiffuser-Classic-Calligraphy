@@ -1,6 +1,7 @@
 # This script is provided by authors of FontDiffuser.
 # This script is the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
 
+import functools
 import random
 import gradio as gr
 from sample import (arg_parse, 
@@ -11,11 +12,11 @@ from sample import (arg_parse,
 def run_fontdiffuser(args,
                      pipe,
                      source_image, 
-                    character, 
-                    reference_image,
-                    sampling_step,
-                    guidance_scale,
-                    batch_size):
+                     character, 
+                     reference_image,
+                     sampling_step,
+                     guidance_scale,
+                     batch_size):
     args.character_input = False if source_image is not None else True
     args.content_character = character
     args.sampling_step = sampling_step
@@ -144,10 +145,8 @@ def main():
                     inputs=reference_image
                 )
         FontDiffuser.click(
-            fn=run_fontdiffuser,
-            inputs=[args,
-                    pipe,
-                    source_image, 
+            fn=functools.partial(run_fontdiffuser, args, pipe),
+            inputs=[source_image, 
                     character, 
                     reference_image,
                     sampling_step,

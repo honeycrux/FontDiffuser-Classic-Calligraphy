@@ -1,19 +1,27 @@
+### FontDiffuser (original) ###
 transformers==4.33.1
 accelerate==0.23.0
 diffusers==0.22.0
 huggingface_hub<0.26.0
 gradio==4.8.0
+fastapi==0.109.2
 pyyaml
 pygame
 opencv-python
 info-nce-pytorch
 kornia
+
+### FYP24 Team ###
+
+## Training ##
+
+# for tensorboard
+tensorflow<=2.17.1
+
+## Evaluation ##
 lpips
 
-# torcheval
+# for torcheval
 # https://github.com/pytorch/torcheval/blob/main/dev-requirements.txt
 torcheval-nightly==2024.8.1
 scikit-image==0.18.3
-
-# tensorboard
-tensorflow<=2.17.1

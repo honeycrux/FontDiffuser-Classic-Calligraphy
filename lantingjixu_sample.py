@@ -38,8 +38,8 @@ def run_fontdiffuser(content_image_path,
     out_image = sampling(
         args=args,
         pipe=pipe,
-        content_image=content_image_path,
-        style_image=style_image_path)
+        content_image=None,
+        style_image=None)
     return out_image
 
 def main():
