@@ -95,7 +95,7 @@ def image_process(args, content_image=None, style_image=None):
 
     return content_image, style_image, content_image_pil
 
-def load_fontdiffuer_pipeline(args):
+def load_fontdiffuser_pipeline(args):
     # Load the model state_dict
     unet = build_unet(args=args)
     unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))
@@ -252,5 +252,5 @@ if __name__=="__main__":
     args = arg_parse()
     
     # load fontdiffuser pipeline
-    pipe = load_fontdiffuer_pipeline(args=args)
+    pipe = load_fontdiffuser_pipeline(args=args)
     out_image = sampling(args=args, pipe=pipe)

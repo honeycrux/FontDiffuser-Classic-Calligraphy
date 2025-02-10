@@ -14,10 +14,10 @@ import torchvision.transforms as TF
 
 from sample import (arg_parse, 
                     sampling,
-                    load_fontdiffuer_pipeline)
+                    load_fontdiffuser_pipeline)
 from src.metrics.font_metrics import FontMetrics
 
-def run_fontdiffuer_demo(args,
+def run_fontdiffuser_demo(args,
                     pipe,
                     content_image, 
                     character, 
@@ -190,7 +190,7 @@ def main():
     print("[Eval] Evaluation begins")
     print()
 
-    pipe = load_fontdiffuer_pipeline(args=args)
+    pipe = load_fontdiffuser_pipeline(args=args)
     toTensor = TF.ToTensor()
 
     total_time = 0
@@ -230,7 +230,7 @@ def main():
 
             character = character_file.stem
 
-            out_image = run_fontdiffuer_demo(args=args,
+            out_image = run_fontdiffuser_demo(args=args,
                                         pipe=pipe,
                                         content_image=None,
                                         character=character,
@@ -240,6 +240,8 @@ def main():
                                         batch_size=1,
                                         seed=seed,
                                         use_few_shot=use_few_shot)
+
+            assert out_image is not None
 
             out_image.save(f'{results_output_dir}/{test_idx}/{character}.png')
 

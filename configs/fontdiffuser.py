@@ -9,7 +9,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description="Training config for FontDiffuser.")
     ################# Experience #################
     parser.add_argument("--seed", type=int, default=123, help="A seed for reproducible training.")
-    parser.add_argument("--experience_name", type=str, default="fontdiffuer_training")
+    parser.add_argument("--experience_name", type=str, default="fontdiffuser_training")
     parser.add_argument("--data_root", type=str, default=None, 
                         help="The font dataset root path.",)
     parser.add_argument("--output_dir", type=str, default=None, 

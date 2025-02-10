@@ -5,10 +5,10 @@ import random
 import gradio as gr
 from sample import (arg_parse, 
                     sampling,
-                    load_fontdiffuer_pipeline)
+                    load_fontdiffuser_pipeline)
 
 
-def run_fontdiffuer(source_image, 
+def run_fontdiffuser(source_image, 
                     character, 
                     reference_image,
                     sampling_step,
@@ -34,8 +34,8 @@ if __name__ == '__main__':
     args.ckpt_dir = 'ckpt'
     args.ttf_path = 'ttf/KaiXinSongA.ttf'
 
-    # load fontdiffuer pipeline
-    pipe = load_fontdiffuer_pipeline(args=args)
+    # load fontdiffuser pipeline
+    pipe = load_fontdiffuser_pipeline(args=args)
 
     with gr.Blocks() as demo:
         with gr.Row():
@@ -78,7 +78,7 @@ if __name__ == '__main__':
                 with gr.Row():
                     character = gr.Textbox(value='隆', label='[Option 2] Source Character')
                 with gr.Row():
-                    fontdiffuer_output_image = gr.Image(height=200, label="FontDiffuser Output Image", image_mode='RGB', type='pil')
+                    fontdiffuser_output_image = gr.Image(height=200, label="FontDiffuser Output Image", image_mode='RGB', type='pil')
 
                 sampling_step = gr.Slider(20, 50, value=20, step=10, 
                                           label="Sampling Step", info="The sampling step by FontDiffuser.")
@@ -141,12 +141,12 @@ if __name__ == '__main__':
                     inputs=reference_image
                 )
         FontDiffuser.click(
-            fn=run_fontdiffuer,
+            fn=run_fontdiffuser,
             inputs=[source_image, 
                     character, 
                     reference_image,
                     sampling_step,
                     guidance_scale,
                     batch_size],
-            outputs=fontdiffuer_output_image)
+            outputs=fontdiffuser_output_image)
     demo.launch(debug=True)

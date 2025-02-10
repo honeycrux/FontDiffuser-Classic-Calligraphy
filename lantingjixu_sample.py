@@ -6,7 +6,7 @@
 import random
 from sample import (arg_parse, 
                     sampling,
-                    load_fontdiffuer_pipeline)
+                    load_fontdiffuser_pipeline)
 import os
 import time
 import torch
@@ -17,7 +17,7 @@ def load_text_to_generate(file_path):
         characters = list(set(text))
         return characters
 
-def run_fontdiffuer(content_image_path, 
+def run_fontdiffuser(content_image_path, 
                     character, 
                     style_image_path,
                     save_image_dir,
@@ -60,8 +60,8 @@ if __name__ == '__main__':
     text_to_generate_path = 'lantingjixu_test.txt'
     characters = load_text_to_generate(text_to_generate_path)
 
-    # load fontdiffuer pipeline
-    pipe = load_fontdiffuer_pipeline(args=args)
+    # load fontdiffuser pipeline
+    pipe = load_fontdiffuser_pipeline(args=args)
 
     total_time = 0
     total_sample = 0
@@ -73,7 +73,7 @@ if __name__ == '__main__':
             print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
-            out_image = run_fontdiffuer(content_image_path=None,
+            out_image = run_fontdiffuser(content_image_path=None,
                                         character=character,
                                         style_image_path='lantingjixu_data/by_id/02348.png',
                                         save_image_dir=args.save_image_dir,
@@ -81,6 +81,7 @@ if __name__ == '__main__':
                                         guidance_scale=7.5,
                                         batch_size=1,
                                         seed=0)
+            assert out_image is not None
             out_image.save(f'{args.save_image_dir}/{character}.png')
             end_time = time.time()
 

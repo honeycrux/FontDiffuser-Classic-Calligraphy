@@ -9,7 +9,7 @@ from diffusers.configuration_utils import (ConfigMixin,
                                            register_to_config)
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):
-    """Forward function for FontDiffuer with content encoder \
+    """Forward function for FontDiffuser with content encoder \
         style encoder and unet.
     """
 
@@ -61,7 +61,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
 
 
 class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
-    """DPM Forward function for FontDiffuer with content encoder \
+    """DPM Forward function for FontDiffuser with content encoder \
         style encoder and unet.
     """
     @register_to_config
