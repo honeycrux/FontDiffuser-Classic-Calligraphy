@@ -42,7 +42,7 @@ def run_fontdiffuser(content_image_path,
         style_image=style_image_path)
     return out_image
 
-if __name__ == '__main__':
+def main():
     args = arg_parse()
     args.ckpt_dir = 'ckpt/'
     args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
@@ -93,3 +93,6 @@ if __name__ == '__main__':
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
     print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
+
+if __name__ == '__main__':
+    main()

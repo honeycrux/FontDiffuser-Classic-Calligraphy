@@ -50,7 +50,7 @@ def display_images_in_grid(image_paths, save_location):
     # plt.show()
     plt.savefig(save_location)
 
-if __name__ == '__main__':
+def main():
     image_folder = 'outputs/'  # Set image folder path with the generated images
 
     save_path = 'outputs/lantingjixu_grid.png' # Set the location to save the grid
@@ -66,3 +66,6 @@ if __name__ == '__main__':
     image_files_grid = [image_files[:title_word_count]] + convert_to_grid(image_files[title_word_count:], 13)
 
     display_images_in_grid(image_files_grid, save_path)
+
+if __name__ == '__main__':
+    main()

@@ -8,7 +8,9 @@ from sample import (arg_parse,
                     load_fontdiffuser_pipeline)
 
 
-def run_fontdiffuser(source_image, 
+def run_fontdiffuser(args,
+                     pipe,
+                     source_image, 
                     character, 
                     reference_image,
                     sampling_step,
@@ -28,11 +30,12 @@ def run_fontdiffuser(source_image,
     return out_image
 
 
-if __name__ == '__main__':
+def main():
     args = arg_parse()
     args.demo = True
     args.ckpt_dir = 'ckpt'
-    args.ttf_path = 'ttf/KaiXinSongA.ttf'
+    # args.ttf_path = 'ttf/KaiXinSongA.ttf'
+    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
     # load fontdiffuser pipeline
     pipe = load_fontdiffuser_pipeline(args=args)
@@ -46,12 +49,12 @@ if __name__ == '__main__':
                         FontDiffuser
                     </h1>
                     <h2 style="font-weight: 450; font-size: 1rem; margin: 0rem">
-                        <a href="https://yeungchenwa.github.io/"">Zhenhua Yang</a>, 
-                        <a href="https://scholar.google.com/citations?user=6zNgcjAAAAAJ&hl=zh-CN&oi=ao"">Dezhi Peng</a>, 
-                        <a href="https://github.com/kyxscut"">Yuxin Kong</a>, 
-                        <a href="https://github.com/ZZXF11"">Yuyi Zhang</a>, 
-                        <a href="https://scholar.google.com/citations?user=IpmnLFcAAAAJ&hl=zh-CN&oi=ao"">Cong Yao</a>, 
-                        <a href="http://www.dlvc-lab.net/lianwen/Index.html"">Lianwen Jin</a>†
+                        <a href="https://yeungchenwa.github.io/">Zhenhua Yang</a>, 
+                        <a href="https://scholar.google.com/citations?user=6zNgcjAAAAAJ&hl=zh-CN&oi=ao">Dezhi Peng</a>, 
+                        <a href="https://github.com/kyxscut">Yuxin Kong</a>, 
+                        <a href="https://github.com/ZZXF11">Yuyi Zhang</a>, 
+                        <a href="https://scholar.google.com/citations?user=IpmnLFcAAAAJ&hl=zh-CN&oi=ao">Cong Yao</a>, 
+                        <a href="http://www.dlvc-lab.net/lianwen/Index.html">Lianwen Jin</a>†
                     </h2>
                     <h2 style="font-weight: 450; font-size: 1rem; margin: 0rem">
                         <strong>South China University of Technology</strong>, Alibaba DAMO Academy
@@ -142,7 +145,9 @@ if __name__ == '__main__':
                 )
         FontDiffuser.click(
             fn=run_fontdiffuser,
-            inputs=[source_image, 
+            inputs=[args,
+                    pipe,
+                    source_image, 
                     character, 
                     reference_image,
                     sampling_step,
@@ -150,3 +155,6 @@ if __name__ == '__main__':
                     batch_size],
             outputs=fontdiffuser_output_image)
     demo.launch(debug=True)
+
+if __name__ == '__main__':
+    main()

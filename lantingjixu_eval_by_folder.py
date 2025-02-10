@@ -11,7 +11,7 @@ from PIL import Image
 
 IMAGE_EXTENSIONS = {"bmp", "jpg", "jpeg", "pgm", "png", "ppm", "tif", "tiff", "webp"}
 
-if __name__ == '__main__':
+def main():
     comparison_dataset_dir = 'outputs/original'
     ground_truth_dataset_dir = 'outputs/target'
 
@@ -55,3 +55,6 @@ if __name__ == '__main__':
     print(f'SSIM value: {ssim_value}')
     print(f'LPIPS value: {lpips_value}')
     print(f'L1 value: {l1_value}')
+
+if __name__ == '__main__':
+    main()
