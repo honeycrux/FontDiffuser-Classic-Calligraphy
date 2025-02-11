@@ -44,7 +44,7 @@
 ## 🔥 Model Zoo
 | **Model**                                    | **chekcpoint** | **status** |
 |----------------------------------------------|----------------|------------|
-| **FontDiffuer**                              | [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ) | Released  |
+| **FontDiffuser**                              | [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ) | Released  |
 | **SCR**                                      | [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ) | Released     |
 
 ## 🚧 TODO List
@@ -186,7 +186,7 @@ gradio gradio_app.py
 ```
 **Example**:   
 <p align="center">
-<img src="figures/gradio_fontdiffuer_new.png" width="80%" height="auto">
+<img src="figures/gradio_fontdiffuser_new.png" width="80%" height="auto">
 </p>
 
 ### (2) Sampling by FontDiffuser and Rendering by InstructPix2Pix

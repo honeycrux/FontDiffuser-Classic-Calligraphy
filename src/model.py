@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 import math
 import torch
 import torch.nn as nn
@@ -7,8 +9,8 @@ from diffusers.configuration_utils import (ConfigMixin,
                                            register_to_config)
 from src.modules.k_feature_extractor import KFeatureExtractor
 
-class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel is a class which is inherited from ModelMixin and ConfigMixin
-    """Forward function for FontDiffuer with content encoder \
+class FontDiffuserModel(ModelMixin, ConfigMixin):
+    """Forward function for FontDiffuser with content encoder \
         style encoder and unet.
     """
 
@@ -139,7 +141,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):           #FontDiffuserModel i
         return noise_pred, offset_out_sum
 
 class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
-    """DPM Forward function for FontDiffuer with content encoder \
+    """DPM Forward function for FontDiffuser with content encoder \
         style encoder and unet.
     """
     @register_to_config

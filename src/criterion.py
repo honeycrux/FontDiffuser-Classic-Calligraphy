@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 import torch
 import torch.nn as nn
 import torchvision 

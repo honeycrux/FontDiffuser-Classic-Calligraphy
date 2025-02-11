@@ -1,18 +1,23 @@
+# This script is provided by the FYP24 project group.
+# This script is for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
+# The ttf path, save path, text-to-generate path, and style image path can be configured in the main function.
+# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (lantingjixu_data/lantingjixu.txt) as the text-to-generate file.
+
 import random
 from sample import (arg_parse, 
                     sampling,
-                    load_fontdiffuer_pipeline)
+                    load_fontdiffuser_pipeline)
 import os
 import time
 import torch
 
-def fetch_lantingjixu_chars():
-    with open('lantingjixu_test.txt', 'r', encoding='utf-8') as text_file:
+def load_text_to_generate(file_path):
+    with open(file_path, 'r', encoding='utf-8') as text_file:
         text = text_file.read()
         characters = list(set(text))
         return characters
 
-def run_fontdiffuer(content_image_path, 
+def run_fontdiffuser(content_image_path, 
                     character, 
                     style_image_path,
                     save_image_dir,
@@ -32,12 +37,12 @@ def run_fontdiffuer(content_image_path,
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
     out_image = sampling(
         args=args,
-        pipe=pipe,      # use the loaded fontdiffuer pipeline with the model of FontDiffuserModelDPM
-        content_image=content_image_path,
-        style_images=style_image_path)
+        pipe=pipe,
+        content_image=None,
+        style_images=None)
     return out_image
 
-if __name__ == '__main__':
+def main():
     args = arg_parse()
     args.ckpt_dir = 'ckpt/'
     args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
@@ -51,13 +56,15 @@ if __name__ == '__main__':
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
-    # load fontdiffuer pipeline
-    pipe = load_fontdiffuer_pipeline(args=args)
+    # load characters to generate
+    text_to_generate_path = 'lantingjixu_test.txt'
+    characters = load_text_to_generate(text_to_generate_path)
 
-    # load lantingjixu sample
-    characters = fetch_lantingjixu_chars()
-    total_time = 0      
-    total_sample = 0        
+    # load fontdiffuser pipeline
+    pipe = load_fontdiffuser_pipeline(args=args)
+
+    total_time = 0
+    total_sample = 0
 
     no_existence_check = True      # set to True to skip the existence check
 
@@ -66,15 +73,15 @@ if __name__ == '__main__':
             print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
-            # run fontdiffuer
-            out_image = run_fontdiffuer(content_image_path=None,
+            out_image = run_fontdiffuser(content_image_path=None,
                                         character=character,
-                                        style_image_path='outputs/style_images',
+                                        style_image_path='lantingjixu_data/by_id/02348.png',
                                         save_image_dir=args.save_image_dir,
                                         sampling_step=20,
                                         guidance_scale=7.5,
                                         batch_size=1,
                                         seed=0)
+            assert out_image is not None
             out_image.save(f'{args.save_image_dir}/{character}.png')
             end_time = time.time()
 
@@ -86,3 +93,6 @@ if __name__ == '__main__':
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
     print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
+
+if __name__ == '__main__':
+    main()
