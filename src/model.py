@@ -7,7 +7,6 @@ import torch.nn as nn
 from diffusers import ModelMixin
 from diffusers.configuration_utils import (ConfigMixin, 
                                            register_to_config)
-from src.modules.k_feature_extractor import KFeatureExtractor
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):
     """Forward function for FontDiffuser with content encoder \

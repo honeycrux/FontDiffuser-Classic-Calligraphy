@@ -143,8 +143,7 @@ def main():
     use_few_shot = True
 
     # Dataset location
-    # dataset_dir = 'lantingjixu_data/by_char'
-    dataset_dir = 'outputs/test_data'
+    dataset_dir = 'lantingjixu_data/by_char'
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
