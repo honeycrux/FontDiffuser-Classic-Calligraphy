@@ -17,14 +17,16 @@ def load_text_to_generate(file_path):
         characters = list(set(text))
         return characters
 
-def run_fontdiffuser(content_image_path, 
-                    character, 
-                    style_image_path,
-                    save_image_dir,
-                    sampling_step,
-                    guidance_scale,
-                    batch_size,
-                    seed):
+def run_fontdiffuser(args,
+                     pipe,
+                     content_image_path, 
+                     character, 
+                     style_image_path,
+                     save_image_dir,
+                     sampling_step,
+                     guidance_scale,
+                     batch_size,
+                     seed):
     args.demo = False
     args.content_image_path = content_image_path
     args.style_image_path = style_image_path
@@ -73,14 +75,16 @@ def main():
             print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
-            out_image = run_fontdiffuser(content_image_path=None,
-                                        character=character,
-                                        style_image_path='lantingjixu_data/by_id/02348.png',
-                                        save_image_dir=args.save_image_dir,
-                                        sampling_step=20,
-                                        guidance_scale=7.5,
-                                        batch_size=1,
-                                        seed=0)
+            out_image = run_fontdiffuser(args=args,
+                                         pipe=pipe,
+                                         content_image_path=None,
+                                         character=character,
+                                         style_image_path='lantingjixu_data/by_id/02348.png',
+                                         save_image_dir=args.save_image_dir,
+                                         sampling_step=20,
+                                         guidance_scale=7.5,
+                                         batch_size=1,
+                                         seed=0)
             assert out_image is not None
             out_image.save(f'{args.save_image_dir}/{character}.png')
             end_time = time.time()
