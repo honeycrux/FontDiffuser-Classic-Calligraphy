@@ -23,5 +23,5 @@ lpips
 
 # for torcheval
 # https://github.com/pytorch/torcheval/blob/main/dev-requirements.txt
-torcheval-nightly==2024.8.1
+torcheval-nightly==2024.7.31
 scikit-image==0.18.3

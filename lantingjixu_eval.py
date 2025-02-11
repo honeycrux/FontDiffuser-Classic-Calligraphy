@@ -165,7 +165,7 @@ def main():
 
     profile_info = load_test_profile(profile_dir=test_profile_dir)
     print()
-    if (profile_info is None):
+    if profile_info is None:
         if expect_existing_profile:
             raise ValueError("Test profile expected but does not exist. \n"
                              "Did you mean to include an existing profile in the test_profile_dir? \n"
@@ -181,8 +181,9 @@ def main():
         print(f"[Eval] Test profile created at {test_profile_dir}")
         profile_info = load_test_profile(profile_dir=test_profile_dir)
         assert profile_info is not None
+        print(f"[Eval] Test profile loaded from {test_profile_dir} ({len(profile_info)} tests)")
     else:
-        print(f"[Eval] Test profile loaded from {test_profile_dir}")
+        print(f"[Eval] Test profile loaded from {test_profile_dir} ({len(profile_info)} tests)")
     print()
 
     ### Part 2: Run the evaluation process ###
