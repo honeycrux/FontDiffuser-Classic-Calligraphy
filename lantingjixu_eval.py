@@ -91,6 +91,8 @@ def create_test_profile(profile_dir: str, num_test_rounds: int, num_style_image:
         with open(f'{profile_dir}/test_{test_idx}.yaml', 'w', encoding="utf-8") as yaml_file:
             yaml.dump(test_configuration, yaml_file, default_flow_style=False, allow_unicode=True)
 
+    print(f"[Eval] Test profile created at {profile_dir} ({num_test_rounds} tests)")
+
 def load_test_profile(profile_dir: str):
     # Load a profile from a directory.
     # The profile is a collection of tests.
@@ -178,7 +180,6 @@ def main():
             num_style_image=num_style_image,
             dataset_files=dataset_files,
         )
-        print(f"[Eval] Test profile created at {test_profile_dir}")
         profile_info = load_test_profile(profile_dir=test_profile_dir)
         assert profile_info is not None
         print(f"[Eval] Test profile loaded from {test_profile_dir} ({len(profile_info)} tests)")

@@ -78,10 +78,8 @@ def image_process(args, content_image=None, style_images=None):
                 available_style_paths.append(style_image_path)
         if len(available_style_paths) < args.k_shot:
             raise ValueError(f"k_shot is set to {args.k_shot}, but the number of style images is less than {args.k_shot}")
-        for _ in range(args.k_shot):
-            style_image_path = random.choice(available_style_paths)
-            style_images = Image.open(style_image_path).convert("RGB")
-            style_images.append(style_images)
+        style_image_paths = random.sample(available_style_paths, k=args.k_shot)
+        style_images = [Image.open(style_image_path).convert('RGB') for style_image_path in style_image_paths]
     else:
         assert style_images is not None, "The style image should not be None."
         if args.character_input:
