@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from src import (ContentEncoder, 
                  StyleEncoder, 

@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 from typing import Optional
 
 import torch

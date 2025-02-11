@@ -1,16 +1,22 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
+
+import functools
 import random
 import gradio as gr
 from sample import (arg_parse, 
                     sampling,
-                    load_fontdiffuer_pipeline)
+                    load_fontdiffuser_pipeline)
 
 
-def run_fontdiffuer(source_image, 
-                    character, 
-                    reference_image,
-                    sampling_step,
-                    guidance_scale,
-                    batch_size):
+def run_fontdiffuser(args,
+                     pipe,
+                     source_image, 
+                     character, 
+                     reference_image,
+                     sampling_step,
+                     guidance_scale,
+                     batch_size):
     args.character_input = False if source_image is not None else True
     args.content_character = character
     args.sampling_step = sampling_step
@@ -25,14 +31,15 @@ def run_fontdiffuer(source_image,
     return out_image
 
 
-if __name__ == '__main__':
+def main():
     args = arg_parse()
     args.demo = True
     args.ckpt_dir = 'ckpt'
-    args.ttf_path = 'ttf/KaiXinSongA.ttf'
+    # args.ttf_path = 'ttf/KaiXinSongA.ttf'
+    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
-    # load fontdiffuer pipeline
-    pipe = load_fontdiffuer_pipeline(args=args)
+    # load fontdiffuser pipeline
+    pipe = load_fontdiffuser_pipeline(args=args)
 
     with gr.Blocks() as demo:
         with gr.Row():
@@ -43,12 +50,12 @@ if __name__ == '__main__':
                         FontDiffuser
                     </h1>
                     <h2 style="font-weight: 450; font-size: 1rem; margin: 0rem">
-                        <a href="https://yeungchenwa.github.io/"">Zhenhua Yang</a>, 
-                        <a href="https://scholar.google.com/citations?user=6zNgcjAAAAAJ&hl=zh-CN&oi=ao"">Dezhi Peng</a>, 
-                        <a href="https://github.com/kyxscut"">Yuxin Kong</a>, 
-                        <a href="https://github.com/ZZXF11"">Yuyi Zhang</a>, 
-                        <a href="https://scholar.google.com/citations?user=IpmnLFcAAAAJ&hl=zh-CN&oi=ao"">Cong Yao</a>, 
-                        <a href="http://www.dlvc-lab.net/lianwen/Index.html"">Lianwen Jin</a>†
+                        <a href="https://yeungchenwa.github.io/">Zhenhua Yang</a>, 
+                        <a href="https://scholar.google.com/citations?user=6zNgcjAAAAAJ&hl=zh-CN&oi=ao">Dezhi Peng</a>, 
+                        <a href="https://github.com/kyxscut">Yuxin Kong</a>, 
+                        <a href="https://github.com/ZZXF11">Yuyi Zhang</a>, 
+                        <a href="https://scholar.google.com/citations?user=IpmnLFcAAAAJ&hl=zh-CN&oi=ao">Cong Yao</a>, 
+                        <a href="http://www.dlvc-lab.net/lianwen/Index.html">Lianwen Jin</a>†
                     </h2>
                     <h2 style="font-weight: 450; font-size: 1rem; margin: 0rem">
                         <strong>South China University of Technology</strong>, Alibaba DAMO Academy
@@ -75,7 +82,7 @@ if __name__ == '__main__':
                 with gr.Row():
                     character = gr.Textbox(value='隆', label='[Option 2] Source Character')
                 with gr.Row():
-                    fontdiffuer_output_image = gr.Image(height=200, label="FontDiffuser Output Image", image_mode='RGB', type='pil')
+                    fontdiffuser_output_image = gr.Image(height=200, label="FontDiffuser Output Image", image_mode='RGB', type='pil')
 
                 sampling_step = gr.Slider(20, 50, value=20, step=10, 
                                           label="Sampling Step", info="The sampling step by FontDiffuser.")
@@ -138,12 +145,15 @@ if __name__ == '__main__':
                     inputs=reference_image
                 )
         FontDiffuser.click(
-            fn=run_fontdiffuer,
+            fn=functools.partial(run_fontdiffuser, args, pipe),
             inputs=[source_image, 
                     character, 
                     reference_image,
                     sampling_step,
                     guidance_scale,
                     batch_size],
-            outputs=fontdiffuer_output_image)
+            outputs=fontdiffuser_output_image)
     demo.launch(debug=True)
+
+if __name__ == '__main__':
+    main()
