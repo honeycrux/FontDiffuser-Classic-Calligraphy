@@ -17,6 +17,7 @@ tests/fixtures/cached_*_text.txt
 logs/
 lightning_logs/
 lang_code_data/
+testing_attention/
 
 # Distribution / packaging
 .Python
