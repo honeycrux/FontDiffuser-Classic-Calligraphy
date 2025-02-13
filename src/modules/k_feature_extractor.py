@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from style_attention import StyleAttentionModel
-from content_attention import ContentAttentionModel
+from src.modules.style_attention import StyleAttentionModel
+from src.modules.content_attention import ContentAttentionModel
 
 style_feature_extractor_input_singleton = (1024, 3, 3)
 content_feature_extractor_1_input_singleton = (3, 96, 96)
@@ -10,6 +10,8 @@ content_feature_extractor_2_input_singleton = (64, 48, 48)
 content_feature_extractor_3_input_singleton = (128, 24, 24)
 content_feature_extractor_4_input_singleton = (256, 12, 12)
 content_feature_extractor_5_input_singleton = (256, 12, 12)
+
+## Old implementation 1: Conv3d
 
 # class KFeatureExtractorUnit_Conv(nn.Module):
 #     def __init__(self, K, singleton_shape):
@@ -37,6 +39,8 @@ content_feature_extractor_5_input_singleton = (256, 12, 12)
 #         x = x.squeeze(dim=1) # (B, 1, C, H, W) -> (B, C, H, W)
 #         return x
 
+## Old implementation 2: FC
+
 # class KFeatureExtractorUnit_FC(nn.Module):
 #     def __init__(self, K, singleton_shape):
 #         super(KFeatureExtractorUnit_FC, self).__init__()
@@ -63,6 +67,8 @@ content_feature_extractor_5_input_singleton = (256, 12, 12)
 #         x = x.squeeze(dim=-1) # (B, C, H, W, 1) -> (B, C, H, W)
 
 #         return x
+
+## Old implementation 3: X1
 
 # class KFeatureExtractorUnit_X1(nn.Module):
 #     def __init__(self, K, singleton_shape):
@@ -117,16 +123,39 @@ content_feature_extractor_5_input_singleton = (256, 12, 12)
 #         x = x.squeeze(dim=1) # (B, 1, C, H, W) -> (B, C, H, W)
 #         return x
 
-#Date: 12/2, try to apply attention model to KFeatureExtractor
 class KFeatureExtractor(nn.Module):
     def __init__(self, K):
         super(KFeatureExtractor, self).__init__()
+
+        ## Old implementation 1: Conv3d
+
+        # self.style_feature_extractor = KFeatureExtractorUnit_Conv(K=K, singleton_shape=style_feature_extractor_input_singleton)
+        # self.content_feature_extractor1 = KFeatureExtractorUnit_Conv(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
+        # self.content_feature_extractor2 = KFeatureExtractorUnit_Conv(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
+        # self.content_feature_extractor3 = KFeatureExtractorUnit_Conv(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
+        # self.content_feature_extractor4 = KFeatureExtractorUnit_Conv(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
+        # self.content_feature_extractor5 = KFeatureExtractorUnit_Conv(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
+
+        ## Old implementation 2: FC
+
+        # self.style_feature_extractor = KFeatureExtractorUnit_FC(K=K, singleton_shape=style_feature_extractor_input_singleton)
+        # self.content_feature_extractor1 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
+        # self.content_feature_extractor2 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
+        # self.content_feature_extractor3 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
+        # self.content_feature_extractor4 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
+        # self.content_feature_extractor5 = KFeatureExtractorUnit_FC(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
+
+        ## Old implementation 3: X1
+
         # self.style_feature_extractor = KFeatureExtractorUnit_X1(K=K, singleton_shape=style_feature_extractor_input_singleton)
         # self.content_feature_extractor1 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
         # self.content_feature_extractor2 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
         # self.content_feature_extractor3 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
         # self.content_feature_extractor4 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
         # self.content_feature_extractor5 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
+
+        ## New implementation: Attention
+
         self.attention_model = StyleAttentionModel(embed_size, heads, ff_hidden_dim)
         # to do: 5 attention models for content feature extractors
         self.content_attention_models = nn.ModuleList([
@@ -136,9 +165,24 @@ class KFeatureExtractor(nn.Module):
             ContentAttentionModel(embed_size, heads, ff_hidden_dim),
             ContentAttentionModel(embed_size, heads, ff_hidden_dim)
         ])
-        
 
     def forward(self, style_features: torch.Tensor, content_features: list[torch.Tensor]):
+
+        ## Old implementation 1, 2, 3
+
+        # style_features = self.style_feature_extractor(style_features)
+
+        # content_features = [
+        #     self.content_feature_extractor1(content_features[0]),
+        #     self.content_feature_extractor2(content_features[1]),
+        #     self.content_feature_extractor3(content_features[2]),
+        #     self.content_feature_extractor4(content_features[3]),
+        #     self.content_feature_extractor5(content_features[4]),
+        # ]
+
+        # return style_features, content_features
+
+        ## New implementation: Attention
 
         batch_size = style_features.size(0)
         K = style_features.size(1)
@@ -151,7 +195,7 @@ class KFeatureExtractor(nn.Module):
         # take average
         style_features = adjusted_style_features.mean(dim=1)  # (batch_size, 1024, 3, 3)
 
-# Tokenization and attention for content features
+        # Tokenization and attention for content features
         adjusted_content_features = []
         for i, content_feature in enumerate(content_features):
             C, H, W = content_feature.shape[2:]
