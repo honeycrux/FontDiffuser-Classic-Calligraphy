@@ -1,3 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+# This script contains utility functions used in the FontDiffuser scripts.
+
 import os
 import cv2
 import yaml

@@ -1,6 +1,7 @@
-import os
+from pathlib import Path
 import random
 from PIL import Image
+import hashlib
 
 import torch
 from torch.utils.data import Dataset
@@ -13,42 +14,56 @@ def get_nonorm_transform(resolution):
              transforms.ToTensor()])
     return nonorm_transform
 
+def is_for_validation(filename):
+    # Using the filename of a data, determine whether it is for validation
+    # Overall, 10% of the data should be determined as validation data
+
+    hash_value = int(hashlib.md5(filename.encode()).hexdigest(), 16)
+    is_validation = hash_value % 10 == 0
+    return is_validation
 
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, training_phase, validate_set_size=None, transforms=None):
+    def __init__(self, args, phase, scr, need_validation_split, is_validation_mode, validate_set_size_limit=None, transforms=None):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.training_phase = training_phase
-        self.validate_set_size = validate_set_size
-        self.scr = training_phase >= 2
+        self.validate_set_size_limit = validate_set_size_limit
+        self.need_validation_split = bool(need_validation_split)
+        self.is_validation_mode = bool(is_validation_mode)
+        self.scr = bool(scr)
         self.k_shot = args.k_shot
         if self.scr:
             self.num_neg = args.num_neg
-        
+        if self.is_validation_mode and not self.need_validation_split:
+            raise ValueError("User does not want to split validation set, but is in validation mode")
+
         # Get Data path
         self.get_path()
         self.transforms = transforms
         self.nonorm_transforms = get_nonorm_transform(args.resolution)
 
     def get_path(self):
+
         self.target_images = []
-        # images with related style  
+        # Images with related style
         self.style_to_images = {}
-        target_image_dir = f"{self.root}/{self.phase}/TargetImage"
-        number_of_styles = len(os.listdir(target_image_dir))
-        limit_per_style = (self.validate_set_size // number_of_styles) if self.validate_set_size is not None and self.phase == "validate" else None
-        for style in os.listdir(target_image_dir):
+        target_image_dir = Path(self.root) / self.phase / "TargetImage"
+        number_of_styles = len(list(target_image_dir.iterdir()))
+        # Limit the number of images per style so that the size of the whole validation set is at most validate_set_size_limit
+        limit_per_style = (self.validate_set_size_limit // number_of_styles) if self.validate_set_size_limit is not None else None
+        for style in target_image_dir.iterdir():
             images_related_style = []
-            for idx, img in enumerate(os.listdir(f"{target_image_dir}/{style}")):
-                if limit_per_style is not None and idx >= limit_per_style:
+            for idx, img in enumerate(style.iterdir()):
+                if self.is_validation_mode and limit_per_style is not None and idx >= limit_per_style:
                     break
-                img_path = f"{target_image_dir}/{style}/{img}"
+                if self.need_validation_split and self.is_validation_mode != is_for_validation(img.stem):
+                    continue
+                img_path = img.as_posix()
                 self.target_images.append(img_path)
                 images_related_style.append(img_path)
-            self.style_to_images[style] = images_related_style
+            self.style_to_images[style.name] = images_related_style
 
     def __getitem__(self, index):
         target_image_path = self.target_images[index]

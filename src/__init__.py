@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 from .model import (FontDiffuserModel,
                    FontDiffuserModelDPM)
 from .criterion import ContentPerceptualLoss

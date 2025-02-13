@@ -1,3 +1,5 @@
+# This script is provided by authors of FontDiffuser.
+
 import torch
 from torch import nn
 from torchvision.ops import DeformConv2d

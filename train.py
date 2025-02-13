@@ -1,3 +1,7 @@
+# This script is provided by authors of FontDiffuser.
+# This script is the training process of FontDiffuser.
+# For usage, also refer to scripts/train_phase_*.sh.
+
 import os
 import math
 import time
@@ -5,10 +9,11 @@ import logging
 from tqdm.auto import tqdm
 
 import torch
+import torch.utils.data
 import torch.nn.functional as F
 from torchvision import transforms
 
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers.optimization import get_scheduler
@@ -50,13 +55,21 @@ def main():
 
     args = get_args()
 
+    use_scr = args.training_phase in [2,]
+    use_validation = args.training_phase >= 2
+    load_basic_models = args.training_phase >= 2
+    # freeze_basic_models = args.training_phase >= 3 # when only training our models (K-feature extractor)
+    freeze_basic_models = False # when fine-tuning the whole model
+
     logging_dir = f"{args.output_dir}/{args.logging_dir}"
 
+    accelerator_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
         log_with=args.report_to,
-        project_dir=logging_dir)
+        project_dir=logging_dir,
+        kwargs_handlers=[accelerator_kwargs])
 
     if accelerator.is_main_process:
         os.makedirs(args.output_dir, exist_ok=True)
@@ -66,7 +79,7 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO)
 
-    # Ser training seed
+    # Set training seed
     if args.seed is not None:
         set_seed(args.seed)
 
@@ -76,11 +89,10 @@ def main():
     content_encoder = build_content_encoder(args=args)
     k_feature_extractor = build_k_feature_extractor(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
-    if args.training_phase >= 2:
+    if load_basic_models:
         unet.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/unet.pth"))
         style_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/style_encoder.pth"))
         content_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/content_encoder.pth"))
-        # k_feature_extractor.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/k_feature_extractor.pth"))
 
     model = FontDiffuserModel(
         unet=unet,
@@ -91,14 +103,14 @@ def main():
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
 
-    # In phase 2, load SCR module for supervision
-    if args.training_phase >= 2:
+    # If necessary, load SCR module for supervision
+    if use_scr:
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
         scr.requires_grad_(False)
 
-    # In phase 3, freeze corresponding model parameters to train the K-feature extractor
-    if args.training_phase >= 3:
+    # If necessary, freeze corresponding model parameters to train the K-feature extractor
+    if freeze_basic_models:
         unet.requires_grad_(False)
         style_encoder.requires_grad_(False)
         content_encoder.requires_grad_(False)
@@ -126,21 +138,28 @@ def main():
             content_transforms, 
             style_transforms, 
             target_transforms],
-        training_phase=args.training_phase)
+        scr=use_scr,
+        need_validation_split=use_validation,
+        is_validation_mode=False)
     train_dataloader = torch.utils.data.DataLoader(
         train_font_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
     validate_font_dataset = FontDataset(
         args=args,
-        phase='validate', 
+        phase='train', 
         transforms=[
             content_transforms, 
             style_transforms, 
             target_transforms],
-        training_phase=args.training_phase,
-        validate_set_size=args.validate_set_size)
+        scr=use_scr,
+        need_validation_split=use_validation,
+        is_validation_mode=True,
+        validate_set_size_limit=args.validate_set_size)
     validate_dataloader = torch.utils.data.DataLoader(
         validate_font_dataset, shuffle=True, batch_size=args.validate_batch_size, collate_fn=CollateFN())
     
+    # print(f"Train dataset size: {len(train_font_dataset)}")
+    # print(f"Validation dataset size: {len(validate_font_dataset)}")
+
     # Build optimizer and learning rate
     if args.scale_lr:
         args.learning_rate = (
@@ -161,7 +180,7 @@ def main():
     model, optimizer, train_dataloader, validate_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, validate_dataloader, lr_scheduler)
     ## move scr module to the target deivces
-    if args.training_phase >= 2:
+    if use_scr:
         scr = scr.to(accelerator.device)
 
     def compute_loss(samples):
@@ -216,7 +235,7 @@ def main():
                 args.perceptual_coefficient * percep_loss + \
                     args.offset_coefficient * offset_loss
         
-        if args.training_phase >= 2:
+        if use_scr:
             neg_images = samples["neg_images"]
             # sc loss
             sample_style_embeddings, pos_style_embeddings, neg_style_embeddings = scr(
@@ -231,6 +250,13 @@ def main():
             loss += args.sc_coefficient * sc_loss
 
         return loss
+
+    def get_submodel(model, submodule_name):
+        # If the model is wrapped with DDP, we need to access the submodule with model.module
+        if hasattr(model, "module"):
+            return getattr(model.module.config, submodule_name)
+        # If the model is not wrapped with DDP, we can access the submodule directly
+        return getattr(model.config, submodule_name)
 
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
@@ -247,7 +273,7 @@ def main():
 
     global_step = 0
     for epoch in range(num_train_epochs):
-        train_loss = 0.0
+        train_loss = []
         for step, samples in enumerate(train_dataloader):
             model.train()
             with accelerator.accumulate(model):
@@ -255,7 +281,7 @@ def main():
 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
-                train_loss += avg_loss.item() / args.gradient_accumulation_steps
+                train_loss.append(avg_loss.item())
 
                 # Backpropagate
                 accelerator.backward(loss)
@@ -265,53 +291,76 @@ def main():
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
+            is_on_global_step = accelerator.sync_gradients
+
             # Checks if the accelerator has performed an optimization step behind the scenes
-            if accelerator.sync_gradients:
-                progress_bar.update(1)
+            if is_on_global_step:
                 global_step += 1
-                accelerator.log({"train_loss": train_loss}, step=global_step)
-                train_loss = 0.0
+                train_loss_value = sum(train_loss) / len(train_loss)
+                # progress_bar.write(f"Proc: {accelerator.process_index} Global Step: {global_step}, Train Loss: {train_loss_value}, Train Loss Size: {len(train_loss)}")
+                accelerator.log({"train_loss": train_loss_value}, step=global_step)
+                train_loss = []
 
-                if accelerator.is_main_process:
-                    if global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps:
-                        save_dir = f"{args.output_dir}/global_step_{global_step}"
-                        os.makedirs(save_dir, exist_ok=True)
-                        torch.save(model.config.unet.state_dict(), f"{save_dir}/unet.pth")
-                        torch.save(model.config.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
-                        torch.save(model.config.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
-                        torch.save(model.config.k_feature_extractor.state_dict(), f"{save_dir}/k_feature_extractor.pth")
-                        torch.save(model, f"{save_dir}/total_model.pth")
-                        logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
-                        progress_bar.write("Save the checkpoint on global step {}".format(global_step))
-
+            # Log progress for all processes
             logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)
 
-            if global_step % args.log_interval == 0 or global_step >= args.max_train_steps:
-                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => train_loss = {loss}")
+            step_idx = accelerator.process_index
+            step_loss = loss.detach().item()
+            step_idx = accelerator.gather_for_metrics((step_idx,))
+            step_loss = accelerator.gather_for_metrics((step_loss,))
 
-            if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
-                # validation
-                progress_bar.write(f"Computing validation loss on global step {global_step}")
-                for step, samples in enumerate(validate_dataloader):
-                    model.eval()
+            accelerator.wait_for_everyone() # I added this as a precaution. Not sure if it is necessary
+
+            if is_on_global_step and accelerator.is_main_process:
+                # Log training loss
+                if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
+                    for step_idx_, step_loss_ in zip(step_idx, step_loss):
+                        logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Proc {step_idx_}: Global Step {global_step} => train_loss = {step_loss_}")
+
+                # Save checkpoint
+                if global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps:
+                    save_dir = f"{args.output_dir}/global_step_{global_step}"
+                    os.makedirs(save_dir, exist_ok=True)
+                    torch.save(get_submodel(model, "unet").state_dict(), f"{save_dir}/unet.pth")
+                    torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
+                    torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
+                    torch.save(get_submodel(model, "k_feature_extractor").state_dict(), f"{save_dir}/k_feature_extractor.pth")
+                    torch.save(model, f"{save_dir}/total_model.pth")
+                    logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
+                    progress_bar.write("Save the checkpoint on global step {}".format(global_step))
+
+            if is_on_global_step:
+                # Do validation
+                if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
+                    if accelerator.is_main_process:
+                        progress_bar.write(f"Computing validation loss on global step {global_step}")
 
                     validation_losses = []
 
-                    with torch.no_grad():
-                        val_loss = compute_loss(samples)
+                    model.eval()
+                    for val_step, val_samples in enumerate(validate_dataloader):
+                        with torch.no_grad():
+                            val_loss = compute_loss(val_samples)
 
-                        # loss = loss / args.gradient_accumulation_steps # not sure if this is necessary
+                        val_logs = {"val_step": val_step, "val_loss": val_loss.detach().item()}
+                        progress_bar.set_postfix(**val_logs)
 
-                    val_loss = accelerator.gather_for_metrics(val_loss) # not sure if this is necessary
-                    validation_losses.append(val_loss)
+                        val_loss = accelerator.gather_for_metrics(val_loss)
 
-                validation_loss = torch.stack(validation_losses).mean().item()
-                progress_bar.write(f"Validation loss: {validation_loss}")
-                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => validation_loss = {validation_loss}")
-                accelerator.log({"validation_loss": validation_loss}, step=global_step)
+                        validation_losses.append(val_loss)
 
-        # Quit
+                    if accelerator.is_main_process:
+                        validation_loss = torch.stack(validation_losses).mean().item()
+                        progress_bar.write(f"Validation loss: {validation_loss}")
+                        logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => validation_loss = {validation_loss}")
+                        accelerator.log({"validation_loss": validation_loss}, step=global_step)
+
+            # Done
+            if is_on_global_step:
+                progress_bar.update(1)
+
+            # Quit
             if global_step >= args.max_train_steps:
                 break
 
