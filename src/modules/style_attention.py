@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# channel -> stroke of character
 class ChannelAttention(nn.Module):
     def __init__(self, embed_size, reduction_ratio=8):
         super().__init__()
@@ -62,6 +63,7 @@ class MultiHeadStyleAttention(nn.Module):
         out = self.channel_attn(out) 
         return out
 
+# adjust the mean value and S.D. value of the style tensor
 class AdaIN(nn.Module):
     def __init__(self, embed_size):
         super().__init__()
@@ -101,11 +103,28 @@ class StyleAttentionModel(nn.Module):
         self.dropout = nn.Dropout(0.1)  
 
     def forward(self, x):
+        # Tokenization
+        B, K, C, H, W = x.shape
+        print("Style Tensor Shape:", x.shape)
+        L = K * H * W
+        x = x.view(B, L, C)
+        print("Tokenization Style Tensor Shape:", x.shape)
+
+        # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
+        
+        # Layer normalization
         x = self.norm1(attn_out + x)
+
+        # Dropout
         x = self.dropout(x)  
+
+        # Feed forward
         ff_out = self.feed_forward(x)
+
+        # Layer normalization
         out = self.norm2(ff_out + x)
+
         return out
 
 # Example usage
@@ -113,19 +132,17 @@ if __name__ == "__main__":
     embed_size = 1024
     heads = 8
     ff_hidden_dim = 2048
-    K = 9  
+    batch_size = 32
+    K = 5  
 
-    style_tensors = torch.randn(K, 3, 3, 1024)
-
-    # Tokenization
-    style_tensors = style_tensors.view(K, 1024, -1).permute(0, 2, 1).reshape(-1, 1024)
+    style_tensors = torch.randn(batch_size, K, 1024, 3, 3)
 
     model = StyleAttentionModel(embed_size, heads, ff_hidden_dim)
     print("Model initialized.")
 
-    outputs = model(style_tensors.unsqueeze(0))  
+    outputs = model(style_tensors)
 
-    final_style_tensor = outputs.reshape(K, 9, 1024).permute(0, 2, 1).reshape(K, 3, 3, 1024)
+    final_style_tensor = outputs.view(batch_size, K, 1024, 3, 3)
     print("Inference complete.")
     print("Final Style Tensor Shape:", final_style_tensor.shape)
     print("Final Style Tensor:\n", final_style_tensor)

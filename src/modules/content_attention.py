@@ -7,19 +7,20 @@ class RelativePositionBias(nn.Module):
         super().__init__()
         self.heads = heads
         self.max_pos = max_pos
-        self.pos_table = nn.Parameter(torch.randn(2*max_pos-1, heads))
+        self.pos_table = nn.Parameter(torch.randn(2*max_pos-1, heads)) 
 
     def forward(self, query_len, key_len):
         pos = torch.arange(query_len)[:, None] - torch.arange(key_len)[None, :]
         pos = pos.clamp(-self.max_pos+1, self.max_pos-1) + self.max_pos -1
-        return self.pos_table[pos].permute(2, 0, 1)  # Shape: [heads, Q, K]
+        return self.pos_table[pos].permute(1, 0, 2)  # Shape: [heads, Q, K]
 
 def window_partition(x, window_size):
     B, L, C = x.shape
+    pad_len = (window_size - (L % window_size)) % window_size
+    x = F.pad(x, (0, 0, 0, pad_len))
+    L = L + pad_len
     x = x.view(B, L // window_size, window_size, C)
-    return x.permute(0, 2, 1, 3)  # [B, num_windows, window_size, C]
-
-# ...existing code...
+    return x.permute(0, 2, 1, 3), pad_len  # [B, window_size, num_windows, C], pad_len
 
 class MultiHeadContentAttention(nn.Module):
     def __init__(self, embed_size, heads):
@@ -36,7 +37,6 @@ class MultiHeadContentAttention(nn.Module):
         self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.fc_out = nn.Linear(heads * self.head_dim, embed_size)
-        self.pos_bias = RelativePositionBias(heads)  
 
     def forward(self, values, keys, query, mask=None):
         N = query.shape[0]
@@ -62,10 +62,12 @@ class MultiHeadContentAttention(nn.Module):
         queries = queries.permute(0, 2, 1, 3).reshape(N * self.heads, query_len, self.head_dim)
 
         # Window-based attention
-        window_size = 8  # assuming window size of 8
-        values_win = window_partition(values, window_size)
-        keys_win = window_partition(keys, window_size)
-        queries_win = window_partition(queries, window_size)
+        window_size = min(value_len, key_len, query_len) // self.heads
+        if window_size == 0:
+            window_size = 1  # Ensure window_size is at least 1
+        values_win, pad_len = window_partition(values, window_size)
+        keys_win, _ = window_partition(keys, window_size)
+        queries_win, _ = window_partition(queries, window_size)
 
         # Check shapes after window partition
         print(f"Values shape after window partition: {values_win.shape}")
@@ -74,11 +76,6 @@ class MultiHeadContentAttention(nn.Module):
 
         # Scaled dot-product attention
         energy = torch.einsum("bnqd,bnkd->bnqk", [queries_win, keys_win])
-        
-        # Adjust the shape of pos_bias to match the energy tensor
-        pos_bias = self.pos_bias(queries_win.shape[2], keys_win.shape[2]).unsqueeze(0)
-        pos_bias = pos_bias.expand(energy.shape[0], -1, -1, -1)
-        energy += pos_bias  # Add relative position bias
 
         if mask is not None:
             energy = energy.masked_fill(mask == 0, float("-1e20"))
@@ -86,13 +83,11 @@ class MultiHeadContentAttention(nn.Module):
         attention = torch.softmax(energy / (self.embed_size ** (1 / 2)), dim=3)
 
         out = torch.einsum("bnql,bnld->bnqd", [attention, values_win]).reshape(
-            N, query_len, self.heads * self.head_dim
+            N, query_len + pad_len, self.heads * self.head_dim
         )
 
         out = self.fc_out(out)
-        return out
-
-# ...existing code...
+        return out[:, :query_len, :]  # Remove padding
     
 class ContentFeedForward(nn.Module):
     def __init__(self, embed_size, ff_hidden_dim):
@@ -107,7 +102,7 @@ class ContentFeedForward(nn.Module):
         x = self.fc2(x)
         return x
 
-class RMSNorm(nn.Module):
+class RMSNorm(nn.Module):   
     def __init__(self, embed_size, eps=1e-6):
         super().__init__()
         self.eps = eps
@@ -128,11 +123,28 @@ class ContentAttentionModel(nn.Module):
         self.dropout = nn.Dropout(0.1)  
 
     def forward(self, x):
+        # Tokenization
+        B, K, C, H, W = x.shape
+        print("Content Tensor Shape:", x.shape)
+        L = (K * C * H * W) // 1024
+        x = x.view(B, L, 1024)
+        print("Tokenization Content Tensor Shape:", x.shape)
+
+        # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
-        x = self.norm1(self.alpha * attn_out + x) 
-        x = self.dropout(x)  
+        
+        # RMS
+        x = self.norm1(self.alpha * attn_out + x)
+        
+        # Dropout
+        x = self.dropout(x)
+        
+        # Feed forward
         ff_out = self.feed_forward(x)
-        out = self.norm2(self.alpha * ff_out + x)  
+        
+        # RMS
+        out = self.norm2(self.alpha * ff_out + x)
+        
         return out
 
 # Example usage
@@ -140,20 +152,24 @@ if __name__ == "__main__":
     embed_size = 1024
     heads = 8
     ff_hidden_dim = 2048
-    C = 64  
+    batch_size = 32  
 
-    content_tensors = torch.randn(16, 64, 48, 48)  
-
-    # Tokenization
-    content_tensors = content_tensors.view(16, C, -1).permute(0, 2, 1).reshape(-1, embed_size)
+    content_tensors_list = [
+        torch.randn(batch_size, 5, 3, 96, 96),  
+        torch.randn(batch_size, 5, 64, 48, 48),  
+        torch.randn(batch_size, 5, 128, 24, 24),  
+        torch.randn(batch_size, 5, 256, 12, 12), 
+    ]
 
     model = ContentAttentionModel(embed_size, heads, ff_hidden_dim)
     print("Model initialized.")
 
-    outputs = model(content_tensors.unsqueeze(0))
+    for content_tensors in content_tensors_list:
+        B, K, C, H, W = content_tensors.shape
 
-   
-    final_content_tensor = outputs.view(16, 48 * 48, C).permute(0, 2, 1).view(16, C, 48, 48)
-    print("Inference complete.")
-    print("Final Content Tensor Shape:", final_content_tensor.shape)
-    print("Final Content Tensor:\n", final_content_tensor)
+        outputs = model(content_tensors)
+
+        final_content_tensor = outputs.view(B, K, H * W, C).permute(0, 1, 3, 2).view(B, K, C, H, W)
+        print("Inference complete.")
+        print("Final Content Tensor Shape:", final_content_tensor.shape)
+        print("Final Content Tensor:\n", final_content_tensor)
