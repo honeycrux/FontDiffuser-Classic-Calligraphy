@@ -27,6 +27,13 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         self.content_encoder = content_encoder
         self.k_feature_extractor = k_feature_extractor
 
+        # Report the number of parameters of each component
+        print("FontDiffuserModel Parameters:")
+        print("Style Encoder Parameters: ", sum(p.numel() for p in style_encoder.parameters()))
+        print("Content Encoder Parameters: ", sum(p.numel() for p in content_encoder.parameters()))
+        print("K Feature Extractor Parameters: ", sum(p.numel() for p in k_feature_extractor.parameters()))
+        print("UNet Parameters: ", sum(p.numel() for p in unet.parameters()))
+
     def forward(
         self, 
         x_t, 

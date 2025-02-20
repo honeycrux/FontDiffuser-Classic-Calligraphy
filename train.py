@@ -7,6 +7,7 @@ import math
 import time
 import logging
 from tqdm.auto import tqdm
+import decimal
 
 import torch
 import torch.utils.data
@@ -57,7 +58,6 @@ def main():
     args = get_args()
 
     use_scr = args.training_phase in [2,]
-    use_validation = args.training_phase >= 2
     load_basic_models = args.training_phase >= 2
     # freeze_basic_models = args.training_phase >= 3 # when only training our models (K-feature extractor)
     freeze_basic_models = False # when fine-tuning the whole model
@@ -136,7 +136,7 @@ def main():
             style_transforms, 
             target_transforms],
         scr=use_scr,
-        need_validation_split=use_validation,
+        need_validation_split=True,
         is_validation_mode=False)
     train_dataloader = torch.utils.data.DataLoader(
         train_font_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
@@ -148,9 +148,8 @@ def main():
             style_transforms, 
             target_transforms],
         scr=use_scr,
-        need_validation_split=use_validation,
-        is_validation_mode=True,
-        validate_set_size_limit=args.validate_set_size)
+        need_validation_split=True,
+        is_validation_mode=True)
     validate_dataloader = torch.utils.data.DataLoader(
         validate_font_dataset, shuffle=True, batch_size=args.validate_batch_size, collate_fn=CollateFN())
 
@@ -272,8 +271,7 @@ def main():
         global_step = args.resume_step
 
     # Only show the progress bar once on each machine.
-    progress_bar = tqdm(initial=global_step, total=args.max_train_steps, disable=not accelerator.is_local_main_process, position=0)
-    progress_bar.set_description("Steps")
+    progress_bar = tqdm(initial=global_step, total=args.max_train_steps, disable=not accelerator.is_local_main_process, desc="Train steps", position=0)
 
     for epoch in range(num_train_epochs):
         train_loss = []
@@ -301,11 +299,12 @@ def main():
                 global_step += 1
                 train_loss_value = sum(train_loss) / len(train_loss)
                 # progress_bar.write(f"Proc: {accelerator.process_index} Global Step: {global_step}, Train Loss: {train_loss_value}, Train Loss Size: {len(train_loss)}")
-                accelerator.log({"train_loss": train_loss_value, "lr": lr_scheduler.get_last_lr()[0]}, step=global_step)
+                accelerator.log({"train_loss": train_loss_value}, step=global_step)
                 train_loss = []
 
             # Log progress for all processes
-            logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            last_lr = lr_scheduler.get_last_lr()[0]
+            logs = {"step_loss": loss.detach().item(), "lr": last_lr}
             progress_bar.set_postfix(**logs)
 
             step_idx = accelerator.process_index
@@ -317,9 +316,10 @@ def main():
 
             if is_on_global_step and accelerator.is_main_process:
                 # Log training loss
+                precise_last_lr = decimal.Decimal.from_float(lr_scheduler.get_last_lr()[0])
                 if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
                     for step_idx_, step_loss_ in zip(step_idx, step_loss):
-                        logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Proc {step_idx_}: Global Step {global_step} => train_loss = {step_loss_}")
+                        logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Proc {step_idx_}: Global Step {global_step} => train_loss = {step_loss_}, lr = {precise_last_lr}")
 
                 # Save checkpoint
                 if global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps:
@@ -334,6 +334,9 @@ def main():
                     progress_bar.write("Save the checkpoint on global step {}".format(global_step))
 
             if is_on_global_step:
+                progress_bar.update(1)
+
+            if is_on_global_step:
                 # Do validation
                 if global_step % args.validate_interval == 0 or global_step >= args.max_train_steps:
                     if accelerator.is_main_process:
@@ -342,12 +345,13 @@ def main():
                     validation_losses = []
 
                     model.eval()
-                    for val_step, val_samples in enumerate(validate_dataloader):
+                    val_progress_bar = tqdm(validate_dataloader, desc="Validation", leave=False)
+                    for val_step, val_samples in enumerate(val_progress_bar):
                         with torch.no_grad():
                             val_loss = compute_loss(val_samples)
 
                         val_logs = {"val_step": val_step, "val_loss": val_loss.detach().item()}
-                        progress_bar.set_postfix(**val_logs)
+                        val_progress_bar.set_postfix(**val_logs)
 
                         val_loss = accelerator.gather_for_metrics(val_loss)
 
@@ -358,10 +362,6 @@ def main():
                         progress_bar.write(f"Validation loss: {validation_loss}")
                         logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => validation_loss = {validation_loss}")
                         accelerator.log({"validation_loss": validation_loss}, step=global_step)
-
-            # Done
-            if is_on_global_step:
-                progress_bar.update(1)
 
             # Quit
             if global_step >= args.max_train_steps:

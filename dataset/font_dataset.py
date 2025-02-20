@@ -25,11 +25,11 @@ def is_for_validation(filename):
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, scr, need_validation_split, is_validation_mode, validate_set_size_limit=None, transforms=None):
+    def __init__(self, args, phase, scr, need_validation_split, is_validation_mode, transforms=None):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.validate_set_size_limit = validate_set_size_limit
+        self.validate_set_size_limit = args.validate_set_size
         self.need_validation_split = bool(need_validation_split)
         self.is_validation_mode = bool(is_validation_mode)
         self.scr = bool(scr)
@@ -52,11 +52,20 @@ class FontDataset(Dataset):
         target_image_dir = Path(self.root) / self.phase / "TargetImage"
         number_of_styles = len(list(target_image_dir.iterdir()))
         # Limit the number of images per style so that the size of the whole validation set is at most validate_set_size_limit
-        limit_per_style = (self.validate_set_size_limit // number_of_styles) if self.validate_set_size_limit is not None else None
+        print(f"Number of styles in dataset: {number_of_styles}")
+        if self.is_validation_mode and self.need_validation_split:
+            limit_per_style = (self.validate_set_size_limit // number_of_styles) if self.validate_set_size_limit is not None else None
+            if limit_per_style:
+                print(f"Validation mode with limit: {self.validate_set_size_limit}, Limit per style: {self.validate_set_size_limit}//{number_of_styles} = {limit_per_style}")
+                if limit_per_style < self.k_shot + 1:
+                    raise ValueError(f"limit_per_style is set to {limit_per_style}, but it should be at least {self.k_shot} + 1 \n"
+                                     f"Did you mean to set validate_set_size to at least {(self.k_shot + 1) * number_of_styles}?")
+            else:
+                print("Validation mode with limit: Unlimited (some percentage of the data determined by is_for_validation, usually 10%)")
         for style in target_image_dir.iterdir():
             images_related_style = []
             for idx, img in enumerate(style.iterdir()):
-                if self.is_validation_mode and limit_per_style is not None and idx >= limit_per_style:
+                if self.is_validation_mode and limit_per_style is not None and len(images_related_style) >= limit_per_style:
                     break
                 if self.need_validation_split and self.is_validation_mode != is_for_validation(img.stem):
                     continue

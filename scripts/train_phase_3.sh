@@ -20,7 +20,7 @@ accelerate launch train.py \
     --offset_coefficient=0.5 \
     --max_train_steps=30000 \
     --ckpt_interval=5000 \
-    --gradient_accumulation_steps=4 \
+    --gradient_accumulation_steps=1 \
     --log_interval=50 \
     --learning_rate=1e-5 \
     --lr_scheduler="constant" \
