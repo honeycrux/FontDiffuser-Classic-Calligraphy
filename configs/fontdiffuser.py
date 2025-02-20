@@ -92,6 +92,12 @@ def get_parser():
                         help="Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires \
                             PyTorch >= 1.10. and an Nvidia Ampere GPU.")
     
+    ## Continue training
+    parser.add_argument("--resume_training", type=bool, default=False, help="Whether to resume training.")
+    parser.add_argument("--resume_ckpt_dir", type=str, default=None, help="The directory of the ckpt to resume training.")
+    parser.add_argument("--resume_step", type=int, default=None, help="The step to resume training.")
+    parser.add_argument("--resume_learning_rate", type=float, default=None, help="The learning rate to resume training.")
+    
     # Sampling
     parser.add_argument("--algorithm_type", type=str, default="dpmsolver++", help="Algorithm for sampleing.")
     parser.add_argument("--guidance_type", type=str, default="classifier-free", help="Guidance type of sampling.")

@@ -90,7 +90,15 @@ def main():
     content_encoder = build_content_encoder(args=args)
     k_feature_extractor = build_k_feature_extractor(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
-    if load_basic_models:
+
+    if args.resume_training:
+        assert args.resume_ckpt_dir is not None, "resume_traning is True, but resume_ckpt_dir is None."
+        unet.load_state_dict(torch.load(f"{args.resume_ckpt_dir}/unet.pth"))
+        style_encoder.load_state_dict(torch.load(f"{args.resume_ckpt_dir}/style_encoder.pth"))
+        content_encoder.load_state_dict(torch.load(f"{args.resume_ckpt_dir}/content_encoder.pth"))
+        k_feature_extractor.load_state_dict(torch.load(f"{args.resume_ckpt_dir}/k_feature_extractor.pth"))
+    elif load_basic_models:
+        assert args.last_phase_ckpt_dir is not None, "training requires basic models, but last_phase_ckpt_dir is None."
         unet.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/unet.pth"))
         style_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/style_encoder.pth"))
         content_encoder.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/content_encoder.pth"))
@@ -150,6 +158,8 @@ def main():
     # print(f"Validation dataset size: {len(validate_font_dataset)}")
 
     # Build optimizer and learning rate
+    if args.resume_training and args.resume_learning_rate is not None:
+        args.learning_rate = args.resume_learning_rate
     if args.scale_lr:
         args.learning_rate = (
             args.learning_rate * args.gradient_accumulation_steps * args.train_batch_size * accelerator.num_processes)
@@ -252,15 +262,19 @@ def main():
         accelerator.init_trackers(args.experience_name)
         save_args_to_yaml(args=args, output_file=f"{args.output_dir}/{args.experience_name}_config.yaml")
 
-    # Only show the progress bar once on each machine.
-    progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
-    progress_bar.set_description("Steps")
-
     # Convert to the training epoch
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
+    # Count global step
     global_step = 0
+    if args.resume_training and args.resume_step is not None:
+        global_step = args.resume_step
+
+    # Only show the progress bar once on each machine.
+    progress_bar = tqdm(initial=global_step, total=args.max_train_steps, disable=not accelerator.is_local_main_process, position=0)
+    progress_bar.set_description("Steps")
+
     for epoch in range(num_train_epochs):
         train_loss = []
         for step, samples in enumerate(train_dataloader):
@@ -287,7 +301,7 @@ def main():
                 global_step += 1
                 train_loss_value = sum(train_loss) / len(train_loss)
                 # progress_bar.write(f"Proc: {accelerator.process_index} Global Step: {global_step}, Train Loss: {train_loss_value}, Train Loss Size: {len(train_loss)}")
-                accelerator.log({"train_loss": train_loss_value}, step=global_step)
+                accelerator.log({"train_loss": train_loss_value, "lr": lr_scheduler.get_last_lr()[0]}, step=global_step)
                 train_loss = []
 
             # Log progress for all processes
