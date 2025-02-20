@@ -105,10 +105,10 @@ class StyleAttentionModel(nn.Module):
     def forward(self, x):
         # Tokenization
         B, K, C, H, W = x.shape
-        print("Style Tensor Shape:", x.shape)
+        # print("Style Tensor Shape:", x.shape)
         L = K * H * W
         x = x.view(B, L, C)
-        print("Tokenization Style Tensor Shape:", x.shape)
+        # print("Tokenization Style Tensor Shape:", x.shape)
 
         # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
@@ -124,6 +124,12 @@ class StyleAttentionModel(nn.Module):
 
         # Layer normalization
         out = self.norm2(ff_out + x)
+
+        # Reshape
+        out = out.view(B, K, 1024, 3, 3)
+
+        # print("Inference complete.")
+        # print("Final Content Tensor Shape:", out.shape)
 
         return out
 
@@ -142,7 +148,4 @@ if __name__ == "__main__":
 
     outputs = model(style_tensors)
 
-    final_style_tensor = outputs.view(batch_size, K, 1024, 3, 3)
-    print("Inference complete.")
-    print("Final Style Tensor Shape:", final_style_tensor.shape)
-    print("Final Style Tensor:\n", final_style_tensor)
+    print("Final Style Tensor:\n", outputs)

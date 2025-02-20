@@ -66,6 +66,9 @@ def build_scr(args):
 
 def build_k_feature_extractor(args):
     k_feature_extractor = KFeatureExtractor(
+        embed_size=1024,
+        heads=8,
+        ff_hidden_dim=2048,
         K=args.k_shot)
     return k_feature_extractor
 

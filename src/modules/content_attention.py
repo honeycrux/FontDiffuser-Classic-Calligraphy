@@ -52,9 +52,9 @@ class MultiHeadContentAttention(nn.Module):
         queries = self.queries(queries)
 
         # Check shapes before window partition
-        print(f"Values shape before window partition: {values.shape}")
-        print(f"Keys shape before window partition: {keys.shape}")
-        print(f"Queries shape before window partition: {queries.shape}")
+        # print(f"Values shape before window partition: {values.shape}")
+        # print(f"Keys shape before window partition: {keys.shape}")
+        # print(f"Queries shape before window partition: {queries.shape}")
 
         # Reshape to (N * heads, L, head_dim) for window partition
         values = values.permute(0, 2, 1, 3).reshape(N * self.heads, value_len, self.head_dim)
@@ -70,9 +70,9 @@ class MultiHeadContentAttention(nn.Module):
         queries_win, _ = window_partition(queries, window_size)
 
         # Check shapes after window partition
-        print(f"Values shape after window partition: {values_win.shape}")
-        print(f"Keys shape after window partition: {keys_win.shape}")
-        print(f"Queries shape after window partition: {queries_win.shape}")
+        # print(f"Values shape after window partition: {values_win.shape}")
+        # print(f"Keys shape after window partition: {keys_win.shape}")
+        # print(f"Queries shape after window partition: {queries_win.shape}")
 
         # Scaled dot-product attention
         energy = torch.einsum("bnqd,bnkd->bnqk", [queries_win, keys_win])
@@ -125,10 +125,10 @@ class ContentAttentionModel(nn.Module):
     def forward(self, x):
         # Tokenization
         B, K, C, H, W = x.shape
-        print("Content Tensor Shape:", x.shape)
+        # print("Content Tensor Shape:", x.shape)
         L = (K * C * H * W) // 1024
         x = x.view(B, L, 1024)
-        print("Tokenization Content Tensor Shape:", x.shape)
+        # print("Tokenization Content Tensor Shape:", x.shape)
 
         # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
@@ -144,6 +144,12 @@ class ContentAttentionModel(nn.Module):
         
         # RMS
         out = self.norm2(self.alpha * ff_out + x)
+
+        # Reshape
+        out = out.view(B, K, H * W, C).permute(0, 1, 3, 2).view(B, K, C, H, W)
+
+        # print("Inference complete.")
+        # print("Final Content Tensor Shape:", out.shape)
         
         return out
 
@@ -169,7 +175,4 @@ if __name__ == "__main__":
 
         outputs = model(content_tensors)
 
-        final_content_tensor = outputs.view(B, K, H * W, C).permute(0, 1, 3, 2).view(B, K, C, H, W)
-        print("Inference complete.")
-        print("Final Content Tensor Shape:", final_content_tensor.shape)
-        print("Final Content Tensor:\n", final_content_tensor)
+        print("Final Content Tensor:\n", outputs)
