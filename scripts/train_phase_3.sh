@@ -26,5 +26,9 @@ accelerate launch train.py \
     --lr_scheduler="constant" \
     --lr_warmup_steps=1000 \
     --drop_prob=0.1 \
-    --mixed_precision="no"
+    --mixed_precision="no" \
+    # --resume_training=True \
+    # --resume_ckpt_dir="ckpt" \
+    # --resume_step=10000 \
+    # --resume_learning_rate=1e-6
     
