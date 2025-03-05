@@ -5,7 +5,8 @@ from src import (ContentEncoder,
                  StyleEncoder, 
                  UNet,
                  SCR,
-                 KFeatureExtractor)
+                #  KFeatureExtractor,
+                MultiStyleExtractor,)
 
 
 def build_unet(args):
@@ -64,10 +65,14 @@ def build_scr(args):
     print("Loaded SCR module for supervision successfully!")
     return scr
 
-def build_k_feature_extractor(args):
-    k_feature_extractor = KFeatureExtractor(
-        K=args.k_shot)
-    return k_feature_extractor
+# def build_k_feature_extractor(args):
+#     k_feature_extractor = KFeatureExtractor(
+#         K=args.k_shot)
+#     return k_feature_extractor
+
+def build_multi_style_extractor(args):
+    multi_style_extractor = MultiStyleExtractor(maxK=args.max_k)
+    return multi_style_extractor
 
 
 def build_ddpm_scheduler(args):

@@ -35,6 +35,7 @@ def get_parser():
     parser.add_argument("--style_start_channel", type=int, default=64, 
                         help="The channels of the fisrt layer output of content encoder.",)
     parser.add_argument("--k_shot", type=int, default=5, help="The number of style images used.")
+    parser.add_argument("--max_k", type=int, default=256, help="The maximum number of style images accepted by the model.")
     
     # Training
     # parser.add_argument("--phase_2", action="store_true", help="Training in phase 2 using SCR module.")
@@ -60,6 +61,7 @@ def get_parser():
     ## loss coefficient
     parser.add_argument("--perceptual_coefficient", type=float, default=0.01)
     parser.add_argument("--offset_coefficient", type=float, default=0.5)
+    parser.add_argument("--style_reconstruction_coefficient", type=float, default=0.5)
     ## step
     parser.add_argument("--max_train_steps", type=int, default=440000, 
                         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",)

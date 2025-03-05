@@ -28,7 +28,8 @@ from src import (FontDiffuserModel,
                  build_content_encoder,
                  build_ddpm_scheduler,
                  build_scr,
-                 build_k_feature_extractor)
+                #  build_k_feature_extractor,
+                build_multi_style_extractor,)
 from utils import (save_args_to_yaml,
                    x0_from_epsilon, 
                    reNormalize_img, 
@@ -87,7 +88,7 @@ def main():
     unet = build_unet(args=args)
     style_encoder = build_style_encoder(args=args)
     content_encoder = build_content_encoder(args=args)
-    k_feature_extractor = build_k_feature_extractor(args=args)
+    multi_style_extractor = build_multi_style_extractor(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
     if load_basic_models:
         unet.load_state_dict(torch.load(f"{args.last_phase_ckpt_dir}/unet.pth"))
@@ -98,7 +99,7 @@ def main():
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder,
-        k_feature_extractor=k_feature_extractor,)
+        multi_style_extractor=multi_style_extractor)
 
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
@@ -208,7 +209,7 @@ def main():
                 style_images[i, :, :, :, :] = 1 # k-shot: [N, K, C, H, W]
 
         # Predict the noise residual and compute loss
-        noise_pred, offset_out_sum = model(
+        noise_pred, offset_out_sum, style_feature_pred = model(
             x_t=noisy_target_images, 
             timesteps=timesteps, 
             style_images=style_images,
@@ -216,6 +217,8 @@ def main():
             content_encoder_downsample_size=args.content_encoder_downsample_size)
         diff_loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
         offset_loss = offset_out_sum / 2
+        style_feature_real = style_encoder(target_images)
+        style_reconstruction_loss = F.mse_loss(style_feature_pred, style_feature_real, reduction="mean")
         
         # output processing for content perceptual loss
         pred_original_sample_norm = x0_from_epsilon(
@@ -231,9 +234,15 @@ def main():
             target_images=norm_target_ori,
             device=target_images.device)
         
+        print("diff_loss", diff_loss)
+        print("percep_loss", percep_loss)
+        print("offset_loss", offset_loss)
+        print("style_reconstruction_loss", style_reconstruction_loss)
+
         loss = diff_loss + \
                 args.perceptual_coefficient * percep_loss + \
-                    args.offset_coefficient * offset_loss
+                    args.offset_coefficient * offset_loss + \
+                        args.style_reconstruction_coefficient * style_reconstruction_loss
         
         if use_scr:
             neg_images = samples["neg_images"]
@@ -325,7 +334,8 @@ def main():
                     torch.save(get_submodel(model, "unet").state_dict(), f"{save_dir}/unet.pth")
                     torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
                     torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
-                    torch.save(get_submodel(model, "k_feature_extractor").state_dict(), f"{save_dir}/k_feature_extractor.pth")
+                    # torch.save(get_submodel(model, "k_feature_extractor").state_dict(), f"{save_dir}/k_feature_extractor.pth")
+                    torch.save(get_submodel(model, "multi_style_extractor").state_dict(), f"{save_dir}/multi_style_extractor.pth")
                     torch.save(model, f"{save_dir}/total_model.pth")
                     logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Save the checkpoint on global step {global_step}")
                     progress_bar.write("Save the checkpoint on global step {}".format(global_step))

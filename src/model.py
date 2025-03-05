@@ -4,7 +4,7 @@ import math
 import torch
 import torch.nn as nn
 
-from diffusers import ModelMixin
+from diffusers.models.modeling_utils import ModelMixin
 from diffusers.configuration_utils import (ConfigMixin, 
                                            register_to_config)
 
@@ -19,13 +19,15 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         unet, 
         style_encoder,
         content_encoder,
-        k_feature_extractor,
+        # k_feature_extractor,
+        multi_style_extractor,
     ):
         super().__init__()
         self.unet = unet
         self.style_encoder = style_encoder
         self.content_encoder = content_encoder
-        self.k_feature_extractor = k_feature_extractor
+        # self.k_feature_extractor = k_feature_extractor
+        self.multi_style_extractor = multi_style_extractor
 
     def forward(
         self, 
@@ -115,10 +117,18 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         # style_content_residual_features = average_features
 
         ## Implementation 2: take learned feature of the K style & content features from the style images
-        style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
-            style_features=style_style_feature_batch,
-            content_features=style_content_residual_features_batch
+        # style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
+        #     style_features=style_style_feature_batch,
+        #     content_features=style_content_residual_features_batch
+        # )
+
+        ## Implementation 3: use multi-style extractor on style feature, take average on content features
+        style_style_feature = self.config.multi_style_extractor(
+            style_style_feature=style_style_feature_batch,
+            style_content_residual_features=style_content_residual_features_batch,
+            content_content_residual_features=content_content_residual_features,
         )
+        style_content_residual_features = map(lambda x: torch.mean(x, dim=1), style_content_residual_features_batch)
 
         # Part III: Do the rest and run the UNet
 
@@ -137,7 +147,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         noise_pred = out[0]
         offset_out_sum = out[1]
 
-        return noise_pred, offset_out_sum
+        return noise_pred, offset_out_sum, style_style_feature
 
 class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
     """DPM Forward function for FontDiffuser with content encoder \
@@ -149,13 +159,15 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         unet, 
         style_encoder,
         content_encoder,
-        k_feature_extractor,
+        # k_feature_extractor,
+        multi_style_extractor,
     ):
         super().__init__()
         self.unet = unet
         self.style_encoder = style_encoder
         self.content_encoder = content_encoder
-        self.k_feature_extractor = k_feature_extractor
+        # self.k_feature_extractor = k_feature_extractor
+        self.multi_style_extractor = multi_style_extractor
 
     
     def forward(
@@ -244,15 +256,28 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # style_content_residual_features = average_features
 
         ## Implementation 2: take learned feature of the K style & content features from the style images
+        # combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
+        # combined_style_content_residual_features = [
+        #     torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
+        #     for i in range(len(uncond_style_content_residual_features))
+        # ]
+        # style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
+        #     style_features=combined_style_style_feature,
+        #     content_features=combined_style_content_residual_features
+        # )
+
+        ## Implementation 3: use multi-style extractor on style feature, take average on content features
         combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
         combined_style_content_residual_features = [
             torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
             for i in range(len(uncond_style_content_residual_features))
         ]
-        style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
-            style_features=combined_style_style_feature,
-            content_features=combined_style_content_residual_features
+        style_style_feature = self.config.multi_style_extractor(
+            style_style_feature=combined_style_style_feature,
+            style_content_residual_features=combined_style_content_residual_features,
+            content_content_residual_features=content_content_residual_features,
         )
+        style_content_residual_features = map(lambda x: torch.mean(x, dim=1), combined_style_content_residual_features)
 
         # Part III: Do the rest and run the UNet
 

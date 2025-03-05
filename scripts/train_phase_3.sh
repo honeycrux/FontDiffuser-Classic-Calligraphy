@@ -1,4 +1,5 @@
 accelerate launch train.py \
+    --k_shot=10 \
     --seed=123 \
     --experience_name="FontDiffuser_training_phase_3" \
     --data_root="data" \

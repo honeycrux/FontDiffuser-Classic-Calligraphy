@@ -8,10 +8,12 @@ from .modules import (ContentEncoder,
                      StyleEncoder, 
                      UNet,
                      SCR,
-                     KFeatureExtractor)
+                     # KFeatureExtractor,
+                     MultiStyleExtractor,)
 from .build import (build_unet, 
                    build_ddpm_scheduler, 
                    build_style_encoder, 
                    build_content_encoder,
                    build_scr,
-                   build_k_feature_extractor)
+                #    build_k_feature_extractor,
+                   build_multi_style_extractor,)
