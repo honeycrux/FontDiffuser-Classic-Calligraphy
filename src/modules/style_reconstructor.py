@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from .attention_for_extractor import SpatialTransformer, ChannelAttnBlock
 
-class MultiStyleExtractor(nn.Module):
+class StyleReconstructor(nn.Module):
     def __init__(self, 
                  maxK=256):
         super().__init__()
@@ -64,56 +64,50 @@ class MultiStyleExtractor(nn.Module):
             elif scrf_final.shape[1] > self.maxK:
                 style_content_residual_features[i] = scrf_final[:, :self.maxK, ...]
 
-        print("style_style_feature", style_style_feature.shape)
-        print("style_content_residual_features[-1]", style_content_residual_features[-1].shape)
-        print("content_content_residual_features[-1]", content_content_residual_features[-1].shape)
+        # print("style_style_feature", style_style_feature.shape)
+        # print("style_content_residual_features[-1]", style_content_residual_features[-1].shape)
+        # print("content_content_residual_features[-1]", content_content_residual_features[-1].shape)
 
-        B = style_style_feature.shape[0]
-        style_feature_output = []
+        B, K, C, H, W = style_style_feature.shape
+        ssf = style_style_feature.permute(0, 1, 3, 4, 2).reshape(B, K * H * W, C)
 
-        for batch_idx in range(B):
-            ssf = style_style_feature[batch_idx]
-            K, C, H, W = ssf.shape
-            ssf = ssf.permute(0, 2, 3, 1).reshape(1, K * H * W, C)
-            scrf_final = style_content_residual_features[-1][batch_idx]
-            KK, CC, HH, WW = scrf_final.shape
-            scrf_final = scrf_final.permute(0, 3, 1, 2).reshape(1, KK * WW, CC * HH)
-            ccrf_final = content_content_residual_features[-1][batch_idx]
-            CCC, HHH, WWW = ccrf_final.shape
-            ccrf_final = ccrf_final.permute(2, 0, 1).reshape(1, WWW, CCC * HHH)
+        scrf_final = style_content_residual_features[-1]
+        BB, KK, CC, HH, WW = scrf_final.shape
+        scrf_final = scrf_final.permute(0, 1, 4, 2, 3).reshape(BB, KK * WW, CC * HH)
 
-            print("batch_idx", batch_idx)
-            print("style_style_feature", ssf.shape)
-            print("scrf_final", scrf_final.shape)
-            print("ccrf_final", ccrf_final.shape)
+        ccrf_final = content_content_residual_features[-1]
+        BBB, CCC, HHH, WWW = ccrf_final.shape
+        ccrf_final = ccrf_final.permute(0, 3, 1, 2).reshape(BBB, WWW, CCC * HHH)
 
-            st1_output = self.st1(
-                hidden_states=ssf,
-                context=scrf_final,
-            )
-            print("st1_output", st1_output.shape)
-            st2_output = self.st2(
-                hidden_states=st1_output,
-                context=ccrf_final,
-            )
-            print("st2_output", st2_output.shape)
-            unpacked = st2_output.reshape(1, K, H * W, C) # shape it into 3D for channel attention (involving conv2d)
-            ca1_output = self.ca1(
-                inputs=unpacked,
-            )
-            print("ca1_output", ca1_output.shape)
+        # print("ssf", ssf.shape)
+        # print("scrf_final", scrf_final.shape)
+        # print("ccrf_final", ccrf_final.shape)
 
-            final_style = ca1_output.reshape(1, H, W, C).permute(0, 3, 1, 2) # back to style feature shape
-            style_feature_output.append(final_style)
+        st1_output = self.st1(
+            hidden_states=ssf,
+            context=scrf_final,
+        )
+        # print("st1_output", st1_output.shape)
+        st2_output = self.st2(
+            hidden_states=st1_output,
+            context=ccrf_final,
+        )
+        # print("st2_output", st2_output.shape)
+        unpacked = st2_output.reshape(B, K, H * W, C) # shape it into 3D for channel attention (involving conv2d)
+        ca1_output = self.ca1(
+            inputs=unpacked,
+        )
+        # print("ca1_output", ca1_output.shape)
 
-        style_feature_output = torch.stack(style_feature_output, dim=0)
-        print("outputs", style_feature_output.shape)
-        return style_feature_output
+        final_style = ca1_output.reshape(B, H, W, C).permute(0, 3, 1, 2) # back to style feature shape
+
+        # print("final_style", final_style.shape)
+        return final_style
 
 if __name__ == "__main__":
     # print number of parameters
 
-    model = MultiStyleExtractor()
+    model = StyleReconstructor()
 
     for name, param in model.named_parameters():
         if param.requires_grad:

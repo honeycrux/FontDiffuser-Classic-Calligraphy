@@ -62,7 +62,7 @@ class SpatialTransformer(nn.Module):
         residual = hidden_states
         hidden_states = self.norm(hidden_states)
         # hidden_states = self.proj_in(hidden_states)
-        print("hidden_states", hidden_states.shape)
+        # print("hidden_states", hidden_states.shape)
         # batch, channel, height, weight = hidden_states.shape
         # inner_dim = channel
         # hidden_states = hidden_states.permute(0, 2, 3, 1).reshape(batch, height * weight, inner_dim)  # here change the shape torch.Size([1, 4096, 128])
@@ -118,13 +118,13 @@ class BasicTransformerBlock(nn.Module):
 
     def forward(self, hidden_states, context=None):
         hidden_states = hidden_states.contiguous() if hidden_states.device.type == "mps" else hidden_states
-        print("hidden_states (before attn1)", hidden_states.shape)
+        # print("hidden_states (before attn1)", hidden_states.shape)
         hidden_states = self.attn1(self.norm1(hidden_states)) + hidden_states
-        print("hidden_states (after attn1)", hidden_states.shape)
+        # print("hidden_states (after attn1)", hidden_states.shape)
         hidden_states = self.attn2(self.norm2(hidden_states), context=context) + hidden_states
-        print("hidden_states (after attn2)", hidden_states.shape)
+        # print("hidden_states (after attn2)", hidden_states.shape)
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
-        print("hidden_states (after ff)", hidden_states.shape)
+        # print("hidden_states (after ff)", hidden_states.shape)
         return hidden_states
 
 
@@ -226,10 +226,10 @@ class CrossAttention(nn.Module):
         context = context if context is not None else hidden_states
         key = self.to_k(context)
         value = self.to_v(context)
-        print("context", context.shape)
-        print("query (after linear)", query.shape)
-        print("key (after linear)", key.shape)
-        print("value (after linear)", value.shape)
+        # print("context", context.shape)
+        # print("query (after linear)", query.shape)
+        # print("key (after linear)", key.shape)
+        # print("value (after linear)", value.shape)
 
         dim = query.shape[-1]
 
@@ -250,9 +250,9 @@ class CrossAttention(nn.Module):
 
     def _attention(self, query, key, value):
         # TODO: use baddbmm for better performance
-        print("query:", query.shape)
-        print("key:", key.shape)
-        print("value:", value.shape)
+        # print("query:", query.shape)
+        # print("key:", key.shape)
+        # print("value:", value.shape)
         # key_transpose = key.transpose(-1, -2)
         # attention_scores = torch.baddbmm(torch.zeros(query.shape[0], key_transpose.shape[1], device=query.device), query, key_transpose, beta=0, alpha=self.scale)
         attention_scores = torch.matmul(query, key.transpose(-1, -2)) * self.scale
@@ -355,13 +355,13 @@ class ChannelAttnBlock(nn.Module):
         concat_feature = inputs
         hidden_states = concat_feature
 
-        print("hidden_states (before norm1)", hidden_states.shape)
+        # print("hidden_states (before norm1)", hidden_states.shape)
         hidden_states = self.norm1(hidden_states)
-        print("hidden_states (after norm1)", hidden_states.shape)
+        # print("hidden_states (after norm1)", hidden_states.shape)
         hidden_states = self.nonlinearity(hidden_states)
-        print("hidden_states (after nonlinearity)", hidden_states.shape)
+        # print("hidden_states (after nonlinearity)", hidden_states.shape)
         hidden_states = self.conv1(hidden_states)
-        print("hidden_states (after conv1)", hidden_states.shape)
+        # print("hidden_states (after conv1)", hidden_states.shape)
 
         if self.channel_attn:
             hidden_states = self.se_channel_attn(hidden_states)

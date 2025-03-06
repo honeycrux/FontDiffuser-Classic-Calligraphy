@@ -19,6 +19,7 @@ accelerate launch train.py \
     --validate_interval=1000 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
+    --style_rec_coefficient=0.1 \
     --max_train_steps=30000 \
     --ckpt_interval=5000 \
     --gradient_accumulation_steps=4 \

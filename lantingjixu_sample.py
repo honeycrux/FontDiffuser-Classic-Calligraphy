@@ -54,7 +54,7 @@ def main():
     args.algorithm_type = 'dpmsolver++'
 
     args.save_image = False
-    args.save_image_dir = 'outputs/few_shot'
+    args.save_image_dir = 'outputs/style_reconstruction'
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 

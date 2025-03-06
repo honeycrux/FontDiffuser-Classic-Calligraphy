@@ -61,7 +61,7 @@ def get_parser():
     ## loss coefficient
     parser.add_argument("--perceptual_coefficient", type=float, default=0.01)
     parser.add_argument("--offset_coefficient", type=float, default=0.5)
-    parser.add_argument("--style_reconstruction_coefficient", type=float, default=0.5)
+    parser.add_argument("--style_rec_coefficient", type=float, default=0.1)
     ## step
     parser.add_argument("--max_train_steps", type=int, default=440000, 
                         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",)

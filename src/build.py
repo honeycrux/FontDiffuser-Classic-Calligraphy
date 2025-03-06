@@ -6,7 +6,7 @@ from src import (ContentEncoder,
                  UNet,
                  SCR,
                 #  KFeatureExtractor,
-                MultiStyleExtractor,)
+                StyleReconstructor,)
 
 
 def build_unet(args):
@@ -70,9 +70,9 @@ def build_scr(args):
 #         K=args.k_shot)
 #     return k_feature_extractor
 
-def build_multi_style_extractor(args):
-    multi_style_extractor = MultiStyleExtractor(maxK=args.max_k)
-    return multi_style_extractor
+def build_style_reconstructor(args):
+    style_reconstructor = StyleReconstructor(maxK=args.max_k)
+    return style_reconstructor
 
 
 def build_ddpm_scheduler(args):
