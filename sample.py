@@ -20,13 +20,16 @@ from src import (FontDiffuserDPMPipeline,
                  build_unet,
                  build_content_encoder,
                  build_style_encoder,
-                 build_k_feature_extractor)
+                #  build_k_feature_extractor,
+                 build_style_reconstructor,
+                 )
 from utils import (ttf2im,
                    load_ttf,
                    is_char_in_font,
                    save_args_to_yaml,
                    save_single_image,
-                   save_image_with_content_style)
+                   save_image_with_content_style,
+                   )
 
 
 def arg_parse():
@@ -117,24 +120,28 @@ def image_process(args, content_image=None, style_images=None):
 
 def load_fontdiffuser_pipeline(args):
     # Load the model state_dict
-    unet = build_unet(args=args)        # Build the unet model
-    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))       # Load the unet model state_dict
-    style_encoder = build_style_encoder(args=args)          # Build the style encoder
-    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))         # Load the style encoder state_dict
-    content_encoder = build_content_encoder(args=args)      # Build the content encoder
-    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))         # Load the content encoder state_dict
-    k_feature_extractor = build_k_feature_extractor(args=args)        # Build the k feature extractor
-    k_feature_extractor.load_state_dict(torch.load(f"{args.ckpt_dir}/k_feature_extractor.pth"))       # Load the k feature extractor state_dict
-    model = FontDiffuserModelDPM(           # Build the FontDiffuserModelDPM, do the __init__ function of FontDiffuserModelDPM
+    unet = build_unet(args=args)
+    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))
+    style_encoder = build_style_encoder(args=args)
+    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))
+    content_encoder = build_content_encoder(args=args)
+    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))
+    # k_feature_extractor = build_k_feature_extractor(args=args)
+    # k_feature_extractor.load_state_dict(torch.load(f"{args.ckpt_dir}/k_feature_extractor.pth"))
+    style_reconstructor = build_style_reconstructor(args=args)
+    style_reconstructor.load_state_dict(torch.load(f"{args.ckpt_dir}/style_reconstructor.pth"))
+    model = FontDiffuserModelDPM(
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder,
-        k_feature_extractor=k_feature_extractor,)
-    model.to(args.device)                   # Move the model to the device
+        # k_feature_extractor=k_feature_extractor,
+        style_reconstructor=style_reconstructor,
+    )
+    model.to(args.device)
     print("Loaded the model state_dict successfully!")
 
     # Load the training ddpm_scheduler.
-    train_scheduler = build_ddpm_scheduler(args=args)       # Build the ddpm_scheduler
+    train_scheduler = build_ddpm_scheduler(args=args)
     print("Loaded training DDPM scheduler sucessfully!")
 
     # Load the DPM_Solver to generate the sample, do __init__ function of FontDiffuserDPMPipeline

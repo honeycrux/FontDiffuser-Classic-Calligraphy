@@ -1,7 +1,8 @@
 # This script is provided by authors of FontDiffuser.
 
 from .model import (FontDiffuserModel,
-                   FontDiffuserModelDPM)
+                   FontDiffuserModelDPM,
+                   )
 from .criterion import ContentPerceptualLoss
 from .dpm_solver.pipeline_dpm_solver import FontDiffuserDPMPipeline
 from .modules import (ContentEncoder,
@@ -9,11 +10,13 @@ from .modules import (ContentEncoder,
                      UNet,
                      SCR,
                      # KFeatureExtractor,
-                     StyleReconstructor,)
+                     StyleReconstructor,
+                     )
 from .build import (build_unet, 
                    build_ddpm_scheduler, 
                    build_style_encoder, 
                    build_content_encoder,
                    build_scr,
                 #    build_k_feature_extractor,
-                   build_style_reconstructor,)
+                   build_style_reconstructor,
+                   )

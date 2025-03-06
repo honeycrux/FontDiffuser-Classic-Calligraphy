@@ -29,11 +29,13 @@ from src import (FontDiffuserModel,
                  build_ddpm_scheduler,
                  build_scr,
                 #  build_k_feature_extractor,
-                build_style_reconstructor,)
+                build_style_reconstructor,
+                )
 from utils import (save_args_to_yaml,
                    x0_from_epsilon, 
                    reNormalize_img, 
-                   normalize_mean_std)
+                   normalize_mean_std,
+                   )
 
 
 logger = get_logger(__name__)
