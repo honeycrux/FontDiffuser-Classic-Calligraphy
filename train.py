@@ -61,8 +61,8 @@ def main():
     use_scr = args.training_phase in [2,]
     use_validation = args.training_phase >= 2
     load_basic_models = args.training_phase >= 2
-    # freeze_basic_models = args.training_phase >= 3 # when only training our models (K-feature extractor)
-    freeze_basic_models = False # when fine-tuning the whole model
+    freeze_basic_models = args.training_phase >= 3 # when only training our models
+    # freeze_basic_models = False # when fine-tuning the whole model
 
     logging_dir = f"{args.output_dir}/{args.logging_dir}"
 

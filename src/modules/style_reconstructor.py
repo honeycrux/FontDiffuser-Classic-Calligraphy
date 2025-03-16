@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .attention_for_extractor import SpatialTransformer, ChannelAttnBlock
+from .attention_for_reconstructor import SpatialTransformer, ChannelAttnBlock
 
 class StyleReconstructor(nn.Module):
     def __init__(self, 
@@ -8,14 +8,15 @@ class StyleReconstructor(nn.Module):
         super().__init__()
 
         self.maxK = maxK
-        in_channels = maxK * 3 * 3 # (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C)
-        ca1_in_channels = maxK
-        ca1_out_channels = 1
+        in_channels = maxK * 3 * 3 # (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C) ; d_query = C
         query_dim = 1024
         d_embed = 128
         n_heads = 8
         d_head = d_embed // n_heads
-        context_dim = maxK * 12 # (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H)
+        context_dim = 256 * 12 # (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H) ; d_context = C * H
+
+        ca1_in_channels = maxK
+        ca1_out_channels = 1
 
         # Spacial transformer 1
         self.st1 = SpatialTransformer(
@@ -39,6 +40,7 @@ class StyleReconstructor(nn.Module):
         self.ca1 = ChannelAttnBlock(
             in_channels=ca1_in_channels,
             out_channels=ca1_out_channels,
+            non_linearity='silu',
         )
 
     def forward(self, style_style_feature, style_content_residual_features, content_content_residual_features):

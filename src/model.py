@@ -277,7 +277,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             style_content_residual_features=combined_style_content_residual_features,
             content_content_residual_features=content_content_residual_features,
         )
-        style_content_residual_features = map(lambda x: torch.mean(x, dim=1), combined_style_content_residual_features)
+        style_content_residual_features = [torch.mean(fs, dim=1) for fs in combined_style_content_residual_features]
 
         # Part III: Do the rest and run the UNet
 

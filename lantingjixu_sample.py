@@ -56,6 +56,8 @@ def main():
     args.save_image = False
     args.save_image_dir = 'outputs/style_reconst'
 
+    args.style_image_path = 'lantingjixu_data/by_id'
+
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
     # load characters to generate
@@ -79,7 +81,7 @@ def main():
                                          pipe=pipe,
                                          content_image_path=None,
                                          character=character,
-                                         style_image_path='outputs/style_images',
+                                         style_image_path=args.style_image_path,
                                          save_image_dir=args.save_image_dir,
                                          sampling_step=20,
                                          guidance_scale=7.5,
