@@ -30,7 +30,8 @@ from src import (FontDiffuserModel,
 from utils import (save_args_to_yaml,
                    x0_from_epsilon, 
                    reNormalize_img, 
-                   normalize_mean_std)
+                   normalize_mean_std,
+                   get_transform_function)
 
 
 logger = get_logger(__name__)
@@ -102,21 +103,9 @@ def main():
         scr.requires_grad_(False)
 
     # Load the datasets
-    content_transforms = transforms.Compose(
-        [transforms.Resize(args.content_image_size, 
-                           interpolation=transforms.InterpolationMode.BILINEAR),
-         transforms.ToTensor(),
-         transforms.Normalize([0.5], [0.5])])
-    style_transforms = transforms.Compose(
-        [transforms.Resize(args.style_image_size, 
-                           interpolation=transforms.InterpolationMode.BILINEAR),
-         transforms.ToTensor(),
-         transforms.Normalize([0.5], [0.5])])
-    target_transforms = transforms.Compose(
-        [transforms.Resize((args.resolution, args.resolution), 
-                           interpolation=transforms.InterpolationMode.BILINEAR),
-         transforms.ToTensor(),
-         transforms.Normalize([0.5], [0.5])])
+    content_transforms = get_transform_function(args.content_image_size)
+    style_transforms = get_transform_function(args.style_image_size)
+    target_transforms = get_transform_function((args.resolution, args.resolution))
     train_font_dataset = FontDataset(
         args=args,
         phase='train', 

@@ -17,26 +17,48 @@ def load_text_to_generate(file_path):
         characters = list(set(text))
         return characters
 
-def run_fontdiffuser(args,
-                     pipe,
-                     content_image_path, 
-                     character, 
-                     style_image_path,
-                     save_image_dir,
-                     sampling_step,
-                     guidance_scale,
-                     batch_size,
-                     seed):
-    args.demo = False
-    args.content_image_path = content_image_path
-    args.style_image_path = style_image_path
-    args.save_image_dir = save_image_dir
-    args.character_input = False if content_image_path is not None else True
-    args.content_character = character
+def load_essential_args(
+        args,
+        ckpt_dir,
+        sampling_step=20,
+        guidance_scale=7.5,
+        batch_size=1,
+    ):
+    args.method = 'multistep'
+    args.guidance_type = 'classifier-free'
+    args.algorithm_type = 'dpmsolver++'
+
+    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+
+    args.ckpt_dir = ckpt_dir
     args.sampling_step = sampling_step
     args.guidance_scale = guidance_scale
     args.batch_size = batch_size
+
+    return args
+
+def run_fontdiffuser(
+        args,
+        pipe,
+        content_image_path, 
+        character, 
+        style_image_path,
+        save_image_dir,
+        ttf_path,
+        seed,
+    ):
+    args.demo = False
+    args.save_image = False
+
+    args.content_image_path = content_image_path
+    args.character_input = False if content_image_path is not None else True
+    args.content_character = character
+    args.style_image_path = style_image_path
+    args.save_image_dir = save_image_dir
+    args.ttf_path = ttf_path
+
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
+
     out_image = sampling(
         args=args,
         pipe=pipe,
@@ -46,21 +68,21 @@ def run_fontdiffuser(args,
 
 def main():
     args = arg_parse()
-    args.ckpt_dir = 'ckpt/'
-    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
-    args.method = 'multistep'
-    args.guidance_type = 'classifier-free'
-    args.algorithm_type = 'dpmsolver++'
-
-    args.save_image = False
-    args.save_image_dir = 'outputs/original'
-
-    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+    ckpt_dir = 'ckpt/'
+    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
+    save_image_dir = 'outputs/original'
+    style_image_path = 'lantingjixu_data/by_id/02348.png'
+    seed = 0
 
     # load characters to generate
     text_to_generate_path = 'lantingjixu_test.txt'
     characters = load_text_to_generate(text_to_generate_path)
+
+    load_essential_args(
+        args=args,
+        ckpt_dir=ckpt_dir,
+    )
 
     # load fontdiffuser pipeline
     pipe = load_fontdiffuser_pipeline(args=args)
@@ -75,16 +97,16 @@ def main():
             print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
-            out_image = run_fontdiffuser(args=args,
-                                         pipe=pipe,
-                                         content_image_path=None,
-                                         character=character,
-                                         style_image_path='lantingjixu_data/by_id/02348.png',
-                                         save_image_dir=args.save_image_dir,
-                                         sampling_step=20,
-                                         guidance_scale=7.5,
-                                         batch_size=1,
-                                         seed=0)
+            out_image = run_fontdiffuser(
+                args=args,
+                pipe=pipe,
+                content_image_path=None,
+                character=character,
+                style_image_path=style_image_path,
+                save_image_dir=save_image_dir,
+                ttf_path=ttf_path,
+                seed=seed,
+            )
             assert out_image is not None
             out_image.save(f'{args.save_image_dir}/{character}.png')
             end_time = time.time()
