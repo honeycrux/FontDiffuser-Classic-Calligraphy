@@ -41,7 +41,7 @@ def save_image_with_content_style(save_dir, image, content_image_pil, content_im
     new_image.paste(style_image, (resolution, 0))
     new_image.paste(image, (resolution*2, 0))
 
-    save_path = f"{save_dir}/out_with_cs.jpg"
+    save_path = f"{save_dir}/out_with_cs.png"
     new_image.save(save_path)
 
 

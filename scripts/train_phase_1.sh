@@ -4,6 +4,7 @@ accelerate launch train.py \
     --data_root="data_examples" \
     --output_dir="outputs/FontDiffuser" \
     --report_to="tensorboard" \
+    --training_phase=1 \
     --resolution=96 \
     --style_image_size=96 \
     --content_image_size=96 \
