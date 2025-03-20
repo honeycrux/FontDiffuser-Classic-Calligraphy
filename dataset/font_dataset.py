@@ -1,6 +1,7 @@
 import os
 import random
 from PIL import Image
+from collections import defaultdict
 
 import torch
 from torch.utils.data import Dataset
@@ -12,6 +13,13 @@ def get_nonorm_transform(resolution):
                                interpolation=transforms.InterpolationMode.BILINEAR), 
              transforms.ToTensor()])
     return nonorm_transform
+
+def parse_target_image_name(target_image_name: str):
+    # Input Format: style+content[+optional-suffix].png
+    target_components = target_image_name.split('.')[0].split('+')
+    style = target_components[0]
+    content = target_components[1]
+    return style, content
 
 
 class FontDataset(Dataset):
@@ -31,31 +39,37 @@ class FontDataset(Dataset):
         self.nonorm_transforms = get_nonorm_transform(args.resolution)
 
     def get_path(self):
-        self.target_images = []
+        self.target_images: list[str] = []
         # images with related style  
-        self.style_to_images = {}
+        self.style_to_images: dict[str, defaultdict[str, list[str]]] = {}
         target_image_dir = f"{self.root}/{self.phase}/TargetImage"
         for style in os.listdir(target_image_dir):
-            images_related_style = []
+            style_related_images = defaultdict[str, list[str]](list)
             for img in os.listdir(f"{target_image_dir}/{style}"):
+                image_style, image_char = parse_target_image_name(img)
                 img_path = f"{target_image_dir}/{style}/{img}"
+                assert image_style == style, f"Style mismatch: {style} vs {image_style} in {img_path}"
                 self.target_images.append(img_path)
-                images_related_style.append(img_path)
-            self.style_to_images[style] = images_related_style
+                style_related_images[image_char].append(img_path)
+            self.style_to_images[style] = style_related_images
 
     def __getitem__(self, index):
         target_image_path = self.target_images[index]
         target_image_name = target_image_path.split('/')[-1]
-        style, content = target_image_name.split('.')[0].split('+')
+
+        # Get target image components
+        style, content = parse_target_image_name(target_image_name)
         
         # Read content image
         content_image_path = f"{self.root}/{self.phase}/ContentImage/{content}.png"
         content_image = Image.open(content_image_path).convert('RGB')
 
         # Random sample used for style image
-        images_related_style = self.style_to_images[style].copy()
-        images_related_style.remove(target_image_path)
-        style_image_path = random.choice(images_related_style)
+        style_imlist_map = self.style_to_images[style].copy()
+        style_imlist_map.pop(content)
+        candidate_style_images = [im for imlist in style_imlist_map.values() for im in imlist]
+
+        style_image_path = random.choice(candidate_style_images)
         style_image = Image.open(style_image_path).convert("RGB")
         
         # Read target image
