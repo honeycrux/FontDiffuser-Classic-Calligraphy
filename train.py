@@ -56,6 +56,7 @@ def main():
 
     use_scr = args.training_phase in [2,]
     load_basic_models = args.training_phase >= 2
+    freeze_basic_models = False
 
     logging_dir = f"{args.output_dir}/{args.logging_dir}"
 
@@ -96,11 +97,17 @@ def main():
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
 
-    # Load SCR module for supervision
+    # If necessary, load SCR module for supervision
     if use_scr:
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
         scr.requires_grad_(False)
+
+    # If necessary, freeze corresponding model parameters
+    if freeze_basic_models:
+        unet.requires_grad_(False)
+        style_encoder.requires_grad_(False)
+        content_encoder.requires_grad_(False)
 
     # Load the datasets
     content_transforms = get_transform_function(args.content_image_size)
