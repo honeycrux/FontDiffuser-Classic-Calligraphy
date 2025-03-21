@@ -1,12 +1,10 @@
 # This script is provided by authors of FontDiffuser.
 
-import math
-import torch
-import torch.nn as nn
-
-from diffusers import ModelMixin
-from diffusers.configuration_utils import (ConfigMixin, 
-                                           register_to_config)
+from diffusers.models.modeling_utils import ModelMixin
+from diffusers.configuration_utils import (
+    ConfigMixin, 
+    register_to_config,
+)
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):
     """Forward function for FontDiffuser with content encoder \

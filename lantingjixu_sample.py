@@ -4,9 +4,11 @@
 # For example, to generate the entire lantingjixu text, use the whole lantingjixu text (lantingjixu_data/lantingjixu.txt) as the text-to-generate file.
 
 import random
-from sample import (arg_parse, 
-                    sampling,
-                    load_fontdiffuser_pipeline)
+from sample import (
+    arg_parse, 
+    sampling,
+    load_fontdiffuser_pipeline,
+)
 import os
 import time
 import torch

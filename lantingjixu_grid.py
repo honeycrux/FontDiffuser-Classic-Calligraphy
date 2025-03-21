@@ -5,7 +5,6 @@
 # The image path, save path, and text data path can be configured in the main function.
 
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import os
 from PIL import Image
 

@@ -12,9 +12,11 @@ from PIL import Image
 import torch
 import torchvision.transforms as TF
 
-from sample import (arg_parse, 
-                    sampling,
-                    load_fontdiffuser_pipeline)
+from sample import (
+    arg_parse, 
+    sampling,
+    load_fontdiffuser_pipeline,
+)
 from src.metrics.font_metrics import FontMetrics
 
 def run_fontdiffuser_demo(args,

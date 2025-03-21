@@ -19,7 +19,11 @@ from typing import Iterable, Optional, TypeVar
 
 import torch
 
-from .mean_absolute_error_functional import _mean_absolute_error_compute, _mean_absolute_error_param_check, _mean_absolute_error_update
+from .mean_absolute_error_functional import (
+    _mean_absolute_error_compute,
+    _mean_absolute_error_param_check,
+    _mean_absolute_error_update,
+)
 from torcheval.metrics.metric import Metric
 
 TMeanAbsoluteError = TypeVar("TMeanAbsoluteError")

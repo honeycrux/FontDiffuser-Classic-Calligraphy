@@ -13,19 +13,23 @@ from typing import Union
 import torch
 from accelerate.utils import set_seed
 
-from src import (FontDiffuserDPMPipeline,
-                 FontDiffuserModelDPM,
-                 build_ddpm_scheduler,
-                 build_unet,
-                 build_content_encoder,
-                 build_style_encoder)
-from utils import (ttf2im,
-                   load_ttf,
-                   is_char_in_font,
-                   save_args_to_yaml,
-                   save_single_image,
-                   save_image_with_content_style,
-                   get_transform_function)
+from src import (
+    FontDiffuserDPMPipeline,
+    FontDiffuserModelDPM,
+    build_ddpm_scheduler,
+    build_unet,
+    build_content_encoder,
+    build_style_encoder,
+)
+from utils import (
+    ttf2im,
+    load_ttf,
+    is_char_in_font,
+    save_args_to_yaml,
+    save_single_image,
+    save_image_with_content_style,
+    get_transform_function,
+)
 
 
 def arg_parse():
@@ -203,9 +207,11 @@ def sampling(args, pipe, content_image=None, style_image=None):
 def load_controlnet_pipeline(args,
                              config_path="lllyasviel/sd-controlnet-canny", 
                              ckpt_path="runwayml/stable-diffusion-v1-5"):
-    from diffusers import ControlNetModel, AutoencoderKL
+    from diffusers.models.controlnet import ControlNetModel
+    # from diffusers.models.autoencoder_kl import AutoencoderKL
     # load controlnet model and pipeline
-    from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler
+    from diffusers.pipelines.controlnet.pipeline_controlnet import StableDiffusionControlNetPipeline
+    from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
     controlnet = ControlNetModel.from_pretrained(config_path, 
                                                  torch_dtype=torch.float16,
                                                  cache_dir=f"{args.ckpt_dir}/controlnet")
@@ -244,7 +250,8 @@ def controlnet(text_prompt,
 
 def load_instructpix2pix_pipeline(args,
                                   ckpt_path="timbrooks/instruct-pix2pix"):
-    from diffusers import StableDiffusionInstructPix2PixPipeline, EulerAncestralDiscreteScheduler
+    from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_instruct_pix2pix import StableDiffusionInstructPix2PixPipeline
+    from diffusers.schedulers.scheduling_euler_ancestral_discrete import EulerAncestralDiscreteScheduler
     pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(ckpt_path, 
                                                                   torch_dtype=torch.float16)
     pipe.to(args.device)

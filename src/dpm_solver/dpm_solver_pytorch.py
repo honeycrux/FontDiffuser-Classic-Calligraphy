@@ -1,5 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+
 import torch
-import torch.nn.functional as F
 import math
 
 

@@ -4,12 +4,16 @@ import torch
 from torch import nn
 from torchvision.ops import DeformConv2d
 
-from .attention import (SpatialTransformer, 
-                        OffsetRefStrucInter, 
-                        ChannelAttnBlock)
-from .resnet import (Downsample2D, 
-                     ResnetBlock2D, 
-                     Upsample2D)
+from .attention import (
+    SpatialTransformer, 
+    OffsetRefStrucInter, 
+    ChannelAttnBlock,
+)
+from .resnet import (
+    Downsample2D, 
+    ResnetBlock2D, 
+    Upsample2D,
+)
 
 
 def get_down_block(
