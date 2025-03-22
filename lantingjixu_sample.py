@@ -1,9 +1,10 @@
 # This script is provided by the FYP24 project group.
-# This script is for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
+# This is the driver code for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
 # The ttf path, save path, text-to-generate path, and style image path can be configured in the main function.
 # For example, to generate the entire lantingjixu text, use the whole lantingjixu text (lantingjixu_data/lantingjixu.txt) as the text-to-generate file.
 
 import random
+from typing import Optional
 from sample import (
     arg_parse, 
     sampling,
@@ -13,7 +14,7 @@ import os
 import time
 import torch
 
-def load_text_to_generate(file_path):
+def load_text_to_generate(file_path: str):
     with open(file_path, 'r', encoding='utf-8') as text_file:
         text = text_file.read()
         characters = list(set(text))
@@ -21,34 +22,36 @@ def load_text_to_generate(file_path):
 
 def load_essential_args(
         args,
-        ckpt_dir,
-        sampling_step=20,
-        guidance_scale=7.5,
-        batch_size=1,
+        ckpt_dir: str,
+        guidance_scale: float = 7.5,
     ):
-    args.method = 'multistep'
+    # essential args are the arguments that are required to run load_fontdiffuser_pipeline
+    # which includes arguments required to build the model and its components
+
     args.guidance_type = 'classifier-free'
-    args.algorithm_type = 'dpmsolver++'
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
     args.ckpt_dir = ckpt_dir
-    args.sampling_step = sampling_step
     args.guidance_scale = guidance_scale
-    args.batch_size = batch_size
 
     return args
 
 def run_fontdiffuser(
         args,
         pipe,
-        content_image_path, 
-        character, 
-        style_image_path,
-        save_image_dir,
-        ttf_path,
-        seed,
+        content_image_path: Optional[str],
+        character: Optional[str],
+        style_image_path: str,
+        save_image_dir: str,
+        ttf_path: str,
+        sampling_step: int = 20,
+        batch_size: int = 1,
+        seed: Optional[int] = None,
     ):
+    args.method = 'multistep'
+    args.algorithm_type = 'dpmsolver++'
+
     args.demo = False
     args.save_image = False
 
@@ -58,6 +61,8 @@ def run_fontdiffuser(
     args.style_image_path = style_image_path
     args.save_image_dir = save_image_dir
     args.ttf_path = ttf_path
+    args.sampling_step = sampling_step
+    args.batch_size = batch_size
 
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
 
@@ -65,7 +70,8 @@ def run_fontdiffuser(
         args=args,
         pipe=pipe,
         content_image=None,
-        style_image=None)
+        style_image=None,
+    )
     return out_image
 
 def main():
@@ -81,12 +87,11 @@ def main():
     text_to_generate_path = 'lantingjixu_test.txt'
     characters = load_text_to_generate(text_to_generate_path)
 
+    # load fontdiffuser pipeline
     load_essential_args(
         args=args,
         ckpt_dir=ckpt_dir,
     )
-
-    # load fontdiffuser pipeline
     pipe = load_fontdiffuser_pipeline(args=args)
 
     total_time = 0

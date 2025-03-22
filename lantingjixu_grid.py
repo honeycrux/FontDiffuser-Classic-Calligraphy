@@ -1,25 +1,25 @@
 # This script is provided by the FYP24 project group.
-# This script creates a grid of characters (top-to-bottom, right-to-left).
-# It is configured to use the Lantingjixu text and the images generated from the Lantingjixu text.
-# The Lantingjixu text must first be generated using lantingjixu_sample.py.
+# This is the driver code for creating a grid of characters (top-to-bottom, right-to-left).
+# It is configured to use the LantingjiXu text and the images generated from the LantingjiXu text.
+# The LantingjiXu text must first be generated using lantingjixu_sample.py.
 # The image path, save path, and text data path can be configured in the main function.
 
 import matplotlib.pyplot as plt
 import os
 from PIL import Image
 
-def load_text(file_path):
+def load_text(file_path: str):
     with open(file_path, 'r', encoding='utf-8') as text_file:
         text = text_file.read()
         characters = list(text)
         return characters
 
-def convert_to_grid(image_files, batch_size):
+def convert_to_grid(image_files: list[str], batch_size: int):
     # Split the image files into rows
     return [image_files[i:i + batch_size] for i in range(0, len(image_files), batch_size)]
 
 # Function to create a grid of images
-def display_images_in_grid(image_paths, save_location):
+def display_images_in_grid(image_paths: list[list[str]], save_location: str):
     # Calculate the number of rows and cols needed
     cols = len(image_paths)
     rows = max([len(image_line) for image_line in image_paths])
@@ -56,7 +56,7 @@ def main():
 
     text_data_path = 'lantingjixu_data/lantingjixu.txt'
 
-    image_files = []
+    image_files: list[str] = []
     characters = load_text(text_data_path)
     for character in characters:
         image_files.append(os.path.join(image_folder, f'{character}.png'))
