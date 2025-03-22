@@ -9,6 +9,7 @@ import logging
 from tqdm.auto import tqdm
 
 import torch
+import torch.utils.data
 import torch.nn.functional as F
 
 from accelerate import Accelerator
@@ -95,7 +96,8 @@ def main():
     model = FontDiffuserModel(
         unet=unet,
         style_encoder=style_encoder,
-        content_encoder=content_encoder)
+        content_encoder=content_encoder,
+    )
 
     # Build content perceptaual Loss
     perceptual_loss = ContentPerceptualLoss()
@@ -193,7 +195,7 @@ def main():
                 noise = torch.randn_like(target_images)
                 bsz = target_images.shape[0]
                 # Sample a random timestep for each image
-                timesteps = torch.randint(0, noise_scheduler.num_train_timesteps, (bsz,), device=target_images.device)
+                timesteps = torch.randint(0, noise_scheduler.config["num_train_timesteps"], (bsz,), device=target_images.device)
                 timesteps = timesteps.long()
 
                 # Add noise to the target_images according to the noise magnitude at each timestep
@@ -250,7 +252,9 @@ def main():
                     loss += args.sc_coefficient * sc_loss
 
                 # Gather the losses across all processes for logging (if we use distributed training).
-                avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
+                all_losses = accelerator.gather(loss.repeat(args.train_batch_size))
+                assert isinstance(all_losses, torch.Tensor)
+                avg_loss = all_losses.mean()
                 train_loss += avg_loss.item() / args.gradient_accumulation_steps
 
                 # Backpropagate
@@ -272,9 +276,9 @@ def main():
                     if global_step % args.ckpt_interval == 0:
                         save_dir = f"{args.output_dir}/global_step_{global_step}"
                         os.makedirs(save_dir, exist_ok=True)
-                        torch.save(model.unet.state_dict(), f"{save_dir}/unet.pth")
-                        torch.save(model.style_encoder.state_dict(), f"{save_dir}/style_encoder.pth")
-                        torch.save(model.content_encoder.state_dict(), f"{save_dir}/content_encoder.pth")
+                        torch.save(model.config["unet"].state_dict(), f"{save_dir}/unet.pth")
+                        torch.save(model.config["style_encoder"].state_dict(), f"{save_dir}/style_encoder.pth")
+                        torch.save(model.config["content_encoder"].state_dict(), f"{save_dir}/content_encoder.pth")
                         torch.save({
                             "model": model.state_dict(),
                             "optimizer": optimizer.state_dict(),

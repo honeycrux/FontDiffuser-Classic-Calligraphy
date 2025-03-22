@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
+from torch.nn.utils.spectral_norm import spectral_norm
 
 from diffusers.models.modeling_utils import ModelMixin
 from diffusers.configuration_utils import (
@@ -53,7 +54,7 @@ class LinearBlock(nn.Module):
         use_bias = True
         self.fc = nn.Linear(in_dim, out_dim, bias=use_bias)
         if use_sn:
-            self.fc = nn.utils.spectral_norm(self.fc)
+            self.fc = spectral_norm(self.fc)
 
         # initialize normalization
         norm_dim = out_dim
