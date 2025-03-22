@@ -33,6 +33,8 @@ def get_down_block(
     channel_attn=False,
     content_channel=32,
     reduction=32):
+    assert resnet_groups is not None
+    assert downsample_padding is not None
 
     down_block_type = down_block_type[7:] if down_block_type.startswith("UNetRes") else down_block_type
     if down_block_type == "DownBlock2D":
@@ -83,6 +85,8 @@ def get_up_block(
     resnet_groups=None,
     cross_attention_dim=None,
     structure_feature_begin=64):
+    assert resnet_groups is not None
+    assert cross_attention_dim is not None
 
     up_block_type = up_block_type[7:] if up_block_type.startswith("UNetRes") else up_block_type
     if up_block_type == "UpBlock2D":
@@ -205,8 +209,12 @@ class UNetMidMCABlock2D(nn.Module):
         encoder_hidden_states=None,
         index=None,
     ):
+        assert encoder_hidden_states is not None
+
         hidden_states = self.resnets[0](hidden_states, temb)
-        for content_attn, style_attn, resnet in zip(self.content_attentions, self.style_attentions, self.resnets[1:]):
+        resnet_layers = self.resnets[1:]
+        assert isinstance(resnet_layers, nn.ModuleList)
+        for content_attn, style_attn, resnet in zip(self.content_attentions, self.style_attentions, resnet_layers):
             
             # content
             current_content_feature = encoder_hidden_states[1][index]
@@ -318,6 +326,8 @@ class MCADownBlock2D(nn.Module):
         temb=None, 
         encoder_hidden_states=None
     ):
+        assert encoder_hidden_states is not None
+
         output_states = ()
 
         for content_attn, resnet, style_attn in zip(self.content_attentions, self.resnets, self.style_attentions):
@@ -534,6 +544,7 @@ class StyleRSIUpBlock2D(nn.Module):
             )
 
         for attn in self.attentions:
+            assert attn._set_attention_slice is torch.Module
             attn._set_attention_slice(slice_size)
 
         self.gradient_checkpointing = False

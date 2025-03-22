@@ -305,6 +305,7 @@ def model_wrapper(
         elif model_type == "score":
             sigma_t = noise_schedule.marginal_std(t_continuous)
             return -sigma_t * output
+        raise ValueError("Unknown model type: {}".format(model_type))
 
     def cond_grad_fn(x, t_input):
         """
@@ -312,6 +313,7 @@ def model_wrapper(
         """
         with torch.enable_grad():
             x_in = x.detach().requires_grad_(True)
+            assert classifier_fn is not None
             log_prob = classifier_fn(x_in, t_input, condition, **classifier_kwargs)
             return torch.autograd.grad(log_prob.sum(), x_in)[0]
 
@@ -335,6 +337,7 @@ def model_wrapper(
                 x_in = torch.cat([x] * 2)
                 t_in = torch.cat([t_continuous] * 2)
                 c_in = []
+                assert condition is not None
                 c_in.append(torch.cat([unconditional_condition[0], condition[0]], dim=0))
                 c_in.append(torch.cat([unconditional_condition[1], condition[1]], dim=0))
                 noise_uncond, noise = noise_pred_fn(x_in, t_in, cond=c_in).chunk(2)
@@ -343,6 +346,7 @@ def model_wrapper(
                 x_in = torch.cat([x] * 3)
                 t_in = torch.cat([t_continuous] * 3)
                 c_in = []
+                assert condition is not None
                 c_in.append(torch.cat([unconditional_condition[0], unconditional_condition[0], condition[0]], dim=0))
                 c_in.append(torch.cat([unconditional_condition[1], condition[1], unconditional_condition[1]], dim=0))
                 noise_uncond, noise_cond_style, noise_cond_content = noise_pred_fn(x_in, t_in, cond=c_in).chunk(3)
@@ -353,6 +357,7 @@ def model_wrapper(
             else:
                 x_in = torch.cat([x] * 2)
                 t_in = torch.cat([t_continuous] * 2)
+                assert condition is not None
                 c_in = torch.cat([unconditional_condition, condition])
                 noise_uncond, noise = noise_pred_fn(x_in, t_in, cond=c_in).chunk(2)
                 return noise_uncond + guidance_scale * (noise - noise_uncond)
@@ -951,8 +956,11 @@ class DPM_Solver:
         if order == 1:
             return self.dpm_solver_first_update(x, s, t, return_intermediate=return_intermediate)
         elif order == 2:
+            assert r1 is not None
             return self.singlestep_dpm_solver_second_update(x, s, t, return_intermediate=return_intermediate, solver_type=solver_type, r1=r1)
         elif order == 3:
+            assert r1 is not None
+            assert r2 is not None
             return self.singlestep_dpm_solver_third_update(x, s, t, return_intermediate=return_intermediate, solver_type=solver_type, r1=r1, r2=r2)
         else:
             raise ValueError("Solver order must be 1 or 2 or 3, got {}".format(order))
