@@ -33,7 +33,7 @@ def get_parser():
                         help="The channels of the fisrt layer output of content encoder.",)
     parser.add_argument("--style_start_channel", type=int, default=64, 
                         help="The channels of the fisrt layer output of content encoder.",)
-    parser.add_argument("--k_shot", type=int, default=5, help="The number of style images used.")
+    parser.add_argument("--k_shot", type=int, default=5, help="The maximum number of style images used.")
     
     # Training
     parser.add_argument("--training_phase", type=int, help="The training phase number.")

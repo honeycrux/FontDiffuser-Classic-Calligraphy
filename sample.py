@@ -80,9 +80,10 @@ def image_process_with_path(args) -> Union[None, tuple[Image.Image, list[Image.I
     for path in style_images_dir.iterdir():
         if path.is_file():
             available_style_paths.append(path)
-    if len(available_style_paths) < args.k_shot:
-        raise ValueError(f"k_shot is set to {args.k_shot}, but the number of style images is less than {args.k_shot}")
-    style_image_paths = random.sample(available_style_paths, k=args.k_shot)
+    num_style_images = len(available_style_paths)
+    if num_style_images < args.k_shot:
+        print(f"Warning: k_shot is set to {args.k_shot}, but got {num_style_images} style images.")
+    style_image_paths = random.sample(available_style_paths, k=min([args.k_shot, num_style_images]))
     style_images = [Image.open(path).convert('RGB') for path in style_image_paths]
 
     assert isinstance(content_image, Image.Image), "The content image should be PIL.Image.Image."

@@ -85,6 +85,8 @@ class FontDataset(Dataset):
         if self.use_scr:
             assert num_styles >= self.num_neg + 1, f"To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
 
+        # TODO: Warns if num_style_images < self.k_shot for any style
+
     def __getitem__(self, index):
         target_image_path = Path(self.target_images[index])
         target_image_name = target_image_path.stem
@@ -107,17 +109,11 @@ class FontDataset(Dataset):
         # style_image = Image.open(style_image_path).convert("RGB")
         
         # My implementation: Get K style images of the same style
-        chosen_style_images = []
-        num_styles = len(self.style_to_images.keys())
+        num_style_images = len(candidate_style_images)
         # Choose style images
-        if len(style_imlist_map) < self.k_shot:
-            raise ValueError(f"k_shot is set to {self.k_shot}, but the number of style images ({num_styles}) is less than {self.k_shot}")
-        for i in range(self.k_shot):
-            style_image_path = random.choice(candidate_style_images)
-            candidate_style_images.remove(style_image_path)
-            chosen_style_images.append(style_image_path)
+        style_image_paths = random.sample(candidate_style_images, min([self.k_shot, num_style_images]))
         # Load style images
-        style_images = [Image.open(style_image_path).convert("RGB") for style_image_path in chosen_style_images]
+        style_images = [Image.open(style_image_path).convert("RGB") for style_image_path in style_image_paths]
         style_images = [self.transforms[1](style_image) for style_image in style_images]
         style_images = torch.stack(style_images, dim=0)
 
