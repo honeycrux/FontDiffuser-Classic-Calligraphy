@@ -60,8 +60,8 @@ class FontDataset(Dataset):
         self.nonorm_transforms = get_nonorm_transform(args.resolution)
 
     def get_path(self):
+        # Find target image list style to images map
         self.target_images: list[str] = []
-        # images with related style  
         self.style_to_images: dict[str, defaultdict[str, list[str]]] = {}
         target_image_dir = Path(self.root) / self.phase / "TargetImage"
         for style in target_image_dir.iterdir():
@@ -78,6 +78,11 @@ class FontDataset(Dataset):
                 self.target_images.append(img_path)
                 style_related_images[image_char].append(img_path)
             self.style_to_images[style.stem] = style_related_images
+
+        # SCR: Check the number of styles
+        num_styles = len(self.style_to_images.keys())
+        if self.use_scr:
+            assert num_styles >= self.num_neg + 1, f"To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
 
     def __getitem__(self, index):
         target_image_path = Path(self.target_images[index])
