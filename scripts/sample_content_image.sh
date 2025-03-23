@@ -1,7 +1,7 @@
 python sample.py \
     --ckpt_dir="ckpt/" \
-    --content_image_path="data_examples/sampling/example_content.jpg" \
-    --style_image_path="data_examples/sampling/example_style.jpg" \
+    --content_image_path="data_examples/sampling/example_content.png" \
+    --style_image_path="data_examples/sampling/example_style.png" \
     --save_image \
     --save_image_dir="outputs/" \
     --device="cuda:0" \

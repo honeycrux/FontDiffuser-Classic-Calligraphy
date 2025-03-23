@@ -274,6 +274,7 @@ class ResnetBlock2D(nn.Module):
         hidden_states = self.conv1(hidden_states)
 
         if temb is not None:
+            assert self.time_emb_proj is not None
             temb = self.time_emb_proj(self.nonlinearity(temb))[:, :, None, None]
             hidden_states = hidden_states + temb   # just add together
 
@@ -325,6 +326,7 @@ class Upsample2D(nn.Module):
         assert hidden_states.shape[1] == self.channels
 
         if self.use_conv_transpose:
+            assert self.conv is not None
             return self.conv(hidden_states)
 
         # Cast to float32 to as 'upsample_nearest2d_out_frame' op does not support bfloat16
@@ -348,8 +350,10 @@ class Upsample2D(nn.Module):
         # TODO(Suraj, Patrick) - clean up after weight dicts are correctly renamed
         if self.use_conv:
             if self.name == "conv":
+                assert self.conv is not None
                 hidden_states = self.conv(hidden_states)
             else:
+                assert self.Conv2d_0 is not None
                 hidden_states = self.Conv2d_0(hidden_states)
 
         return hidden_states

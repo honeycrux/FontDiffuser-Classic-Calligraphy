@@ -1,9 +1,13 @@
+# This script is provided by authors of FontDiffuser.
+
 import torch
 from PIL import Image
 
-from .dpm_solver_pytorch import (NoiseScheduleVP, 
-                                model_wrapper, 
-                                DPM_Solver)
+from .dpm_solver_pytorch import (
+    NoiseScheduleVP, 
+    model_wrapper, 
+    DPM_Solver,
+)
 
 class FontDiffuserDPMPipeline():
     """FontDiffuser pipeline with DPM_Solver scheduler.
