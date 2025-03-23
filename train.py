@@ -126,20 +126,43 @@ def main():
         style_encoder.requires_grad_(False)
         content_encoder.requires_grad_(False)
 
-    # Load the datasets
+    # Load transform functions
     content_transforms = get_transform_function(args.content_image_size)
     style_transforms = get_transform_function(args.style_image_size)
     target_transforms = get_transform_function((args.resolution, args.resolution))
-    train_font_dataset = FontDataset(
+
+    # Load training dataset
+    train_dataset = FontDataset(
         args=args,
         phase='train', 
         transforms=[
             content_transforms, 
             style_transforms, 
-            target_transforms],
-        scr=use_scr)
+            target_transforms,
+        ],
+        scr=use_scr,
+        is_validation_mode=False,
+    )
     train_dataloader = torch.utils.data.DataLoader(
-        train_font_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
+        train_dataset, shuffle=True, batch_size=args.train_batch_size, collate_fn=CollateFN())
+
+    # Load validation dataset
+    validation_dataset = None
+    validation_dataloader = None
+    if args.use_validation:
+        validation_dataset = FontDataset(
+            args=args,
+            phase='train', 
+            transforms=[
+                content_transforms, 
+                style_transforms, 
+                target_transforms,
+            ],
+            scr=use_scr,
+            is_validation_mode=True,
+        )
+        validation_dataloader = torch.utils.data.DataLoader(
+            validation_dataset, shuffle=False, batch_size=args.train_batch_size, collate_fn=CollateFN())
     
     # Build optimizer and learning rate
     if args.scale_lr:
@@ -174,8 +197,8 @@ def main():
         print("Starting new training")
 
     # Accelerate preparation
-    model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, lr_scheduler)
+    model, optimizer, train_dataloader, validation_dataloader, lr_scheduler = accelerator.prepare(
+        model, optimizer, train_dataloader, validation_dataloader, lr_scheduler)
     ## Move scr module to target deivce
     if use_scr:
         assert scr is not None
@@ -191,12 +214,13 @@ def main():
     progress_bar = tqdm(initial=global_step, total=args.max_train_steps, disable=not accelerator.is_local_main_process, position=0)
     progress_bar.set_description("Steps")
 
-    # Convert training steps to epochs
-    # PyTorch: len(dataloader)/num_batches, is the max number of batches that can fit into len(dataset)
+    # Compute training numbers (convert training steps to epochs, etc.)
+    # PyTorch: len(dataloader)/num_batches is the max number of batches that can fit into len(dataset)
     # Accelerator: Gradient accum must fit into an epoch (and the final accum may have fewer steps)
     # i.e. num_update_steps = ceil(num_batches / gradient_accumulation_steps)
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+    num_validation_steps = len(validation_dataloader) if validation_dataloader is not None else None
 
     def compute_loss(samples):
         content_images = samples["content_image"]
@@ -281,20 +305,20 @@ def main():
         acc_local_train_loss = [] # local loss (only for the current process)
 
         for step, samples in enumerate(train_dataloader):
+            # Training
             model.train()
-
             with accelerator.accumulate(model):
-                # Forward pass
+                ## Forward pass
                 loss = compute_loss(samples)
                 acc_local_train_loss.append(loss.item())
 
-                # Gather the losses across all processes for logging
+                ## Gather the losses across all processes
                 distributed_losses = accelerator.gather(loss.repeat(args.train_batch_size))
                 assert isinstance(distributed_losses, torch.Tensor)
                 distributed_loss = distributed_losses.mean()
                 acc_train_loss.append(distributed_loss.item())
 
-                # Backpropagate
+                ## Backpropagate
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -317,8 +341,10 @@ def main():
                 progress_bar.update(1)
                 global_step += 1
 
+            is_last_step = global_step >= args.max_train_steps
             is_logging_step = is_on_global_step and global_step % args.log_interval == 0
-            is_checkpoint_step = is_on_global_step and global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps
+            is_checkpoint_step = is_on_global_step and (is_last_step or global_step % args.ckpt_interval == 0)
+            is_validation_step =  is_on_global_step and args.use_validation and (is_last_step or global_step % args.validation_interval == 0)
 
             # Compute and log loss values
             if is_on_global_step:
@@ -343,7 +369,7 @@ def main():
                 acc_train_loss = []
                 acc_local_train_loss = []
 
-            ## Wait for everyone
+            # Wait for everyone
             accelerator.wait_for_everyone()
 
             # Save checkpoint
@@ -361,6 +387,43 @@ def main():
                 }, f"{save_dir}/whole_model.pth")
                 logging.info(f"[{get_local_time()}] Save the checkpoint on global step {global_step}")
                 progress_bar.write("Save the checkpoint on global step {}".format(global_step))
+
+            # Validation
+            if is_validation_step:
+                assert validation_dataloader is not None
+                assert num_validation_steps is not None
+                if is_on_main_process:
+                    progress_bar.write(f"Computing validation loss on global step {global_step}")
+
+                ## Initialize validation loss states
+                all_val_losses: list[torch.Tensor] = []
+
+                ## Prepare validation progress bar
+                val_progress_bar = tqdm(validation_dataloader, total=num_validation_steps, desc="Validation", leave=False)
+
+                model.eval()
+                for val_step, val_samples in enumerate(val_progress_bar):
+                    ## Compute validation loss
+                    with torch.no_grad():
+                        val_loss = compute_loss(val_samples)
+
+                    ## Gather the losses across all processes
+                    distributed_val_losses = accelerator.gather_for_metrics(val_loss)
+                    assert isinstance(distributed_val_losses, torch.Tensor)
+                    distributed_val_loss = distributed_val_losses.mean()
+                    all_val_losses.append(distributed_val_loss)
+
+                    ## Log to validation progress bar
+                    if is_on_main_process:
+                        val_logs = {"val_step": val_step, "val_loss": distributed_val_loss.detach().item()}
+                        val_progress_bar.set_postfix(**val_logs)
+
+                ## Compute and log validation loss values
+                if accelerator.is_main_process:
+                    validation_loss = sum(all_val_losses) / len(all_val_losses)
+                    progress_bar.write(f"Validation loss: {validation_loss}")
+                    logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))}] Global Step {global_step} => validation_loss = {validation_loss}")
+                    accelerator.log({"validation_loss": validation_loss}, step=global_step)
 
             # Quit
             if global_step >= args.max_train_steps:

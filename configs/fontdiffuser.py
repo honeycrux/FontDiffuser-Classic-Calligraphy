@@ -82,8 +82,14 @@ def get_parser():
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], 
                         help="Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires \
                             PyTorch >= 1.10. and an Nvidia Ampere GPU.")
-
-    ## Continue training
+    ## validation
+    parser.add_argument("--use_validation", action="store_true", help="Whether to run validation during training.")
+    parser.add_argument("--validation_factor", type=int, default=10, 
+                        help="The factor of validation data (1/factor of data is split for validation).")
+    parser.add_argument("--validation_batch_size", type=int, default=8, 
+                        help="Batch size (per device) for the validation dataloader.")
+    parser.add_argument("--validation_interval", type=int, default=100, help="The interval of validation.")
+    ## resume training
     parser.add_argument("--resume_training", action="store_true", help="Whether to resume training.")
     parser.add_argument("--resume_ckpt_dir", type=str, default=None, help="The directory of the ckpt to resume training.")
     
