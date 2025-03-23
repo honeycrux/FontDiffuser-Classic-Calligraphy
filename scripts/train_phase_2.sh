@@ -1,11 +1,11 @@
 accelerate launch train.py \
     --seed=123 \
     --experience_name="FontDiffuser_training_phase_2" \
-    --data_root="data_examples" \
+    --data_root="data" \
     --output_dir="outputs/FontDiffuser" \
     --report_to="tensorboard" \
     --training_phase=2 \
-    --last_phase_ckpt_dir="phase_1_ckpt" \
+    --last_phase_ckpt_dir="ckpt" \
     --scr_ckpt_path="ckpt/scr_210000.pth" \
     --sc_coefficient=0.01 \
     --num_neg=16 \
@@ -19,10 +19,10 @@ accelerate launch train.py \
     --train_batch_size=16 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
-    --max_train_steps=30000 \
-    --ckpt_interval=5000 \
+    --max_train_steps=1 \
+    --ckpt_interval=1 \
     --gradient_accumulation_steps=1 \
-    --log_interval=50 \
+    --log_interval=1 \
     --learning_rate=1e-5 \
     --lr_scheduler="constant" \
     --lr_warmup_steps=1000 \
