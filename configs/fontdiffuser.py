@@ -38,6 +38,7 @@ def get_parser():
     parser.add_argument("--training_phase", type=int, help="The training phase number.")
     parser.add_argument("--last_phase_ckpt_dir", type=str, default=None, help="The trained ckpt directory during the last phase.")
     ## SCR
+    parser.add_argument("--use_scr", action="store_true", help="Whether to use the SCR.")
     parser.add_argument("--temperature", type=float, default=0.07)
     parser.add_argument("--mode", type=str, default="refinement")
     parser.add_argument("--scr_image_size", type=int, default=96)

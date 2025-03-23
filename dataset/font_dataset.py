@@ -40,17 +40,16 @@ class FontDataset(Dataset):
             args,
             phase: str,
             transforms,
-            scr: bool,
             is_validation_mode: bool,
         ):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.scr = bool(scr)
+        self.use_scr = bool(args.use_scr)
         self.use_validation = args.use_validation
         self.validation_factor = args.validation_factor
         self.is_validation_mode = is_validation_mode
-        if self.scr:
+        if self.use_scr:
             self.num_neg = args.num_neg
         if self.is_validation_mode and not self.use_validation:
             raise ValueError("User does not want to split validation set, but is in validation mode")
@@ -114,7 +113,7 @@ class FontDataset(Dataset):
             "target_image_path": target_image_path.as_posix(),
             "nonorm_target_image": nonorm_target_image}
         
-        if self.scr:
+        if self.use_scr:
             # Get neg image from the different style of the same content
             style_list = list(self.style_to_images.keys())
             style_index = style_list.index(style)

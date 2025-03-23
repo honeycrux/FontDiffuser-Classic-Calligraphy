@@ -60,7 +60,6 @@ def get_args():
 def main():
     args = get_args()
 
-    use_scr = args.training_phase in [2,]
     load_basic_models = args.training_phase >= 2
     freeze_basic_models = False
 
@@ -114,7 +113,7 @@ def main():
 
     # If necessary, load SCR module for supervision
     scr = None
-    if use_scr:
+    if args.use_scr:
         assert isinstance(args.scr_ckpt_path, str) and os.path.exists(args.scr_ckpt_path), f"Expect the SCR checkpoint path exists, but got {args.scr_ckpt_path}"
         scr = build_scr(args=args)
         scr.load_state_dict(torch.load(args.scr_ckpt_path))
@@ -140,7 +139,6 @@ def main():
             style_transforms, 
             target_transforms,
         ],
-        scr=use_scr,
         is_validation_mode=False,
     )
     train_dataloader = torch.utils.data.DataLoader(
@@ -158,7 +156,6 @@ def main():
                 style_transforms, 
                 target_transforms,
             ],
-            scr=use_scr,
             is_validation_mode=True,
         )
         validation_dataloader = torch.utils.data.DataLoader(
@@ -200,7 +197,7 @@ def main():
     model, optimizer, train_dataloader, validation_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, validation_dataloader, lr_scheduler)
     ## Move scr module to target deivce
-    if use_scr:
+    if args.use_scr:
         assert scr is not None
         scr = scr.to(accelerator.device)
 
@@ -274,7 +271,7 @@ def main():
                 args.perceptual_coefficient * percep_loss + \
                     args.offset_coefficient * offset_loss
         
-        if use_scr:
+        if args.use_scr:
             assert scr is not None
             neg_images = samples["neg_images"]
             # sc loss
