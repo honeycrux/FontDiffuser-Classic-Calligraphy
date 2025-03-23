@@ -1,6 +1,6 @@
 python sample.py \
     --ckpt_dir="ckpt/" \
-    --style_image_path="data_examples/sampling/example_style.jpg" \
+    --style_image_path="data_examples/sampling/example_style.png" \
     --save_image \
     --character_input \
     --content_character="隆" \

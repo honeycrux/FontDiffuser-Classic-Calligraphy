@@ -1,12 +1,13 @@
 # This script is provided by authors of FontDiffuser.
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
-from src import (ContentEncoder, 
-                 StyleEncoder, 
-                 UNet,
-                 SCR,
-                #  KFeatureExtractor,
-                StyleReconstructor,)
+from src import (
+    ContentEncoder, 
+    StyleEncoder, 
+    UNet,
+    SCR,
+    StyleReconstructor,
+)
 
 
 def build_unet(args):
@@ -16,14 +17,14 @@ def build_unet(args):
         out_channels=3,
         flip_sin_to_cos=True,
         freq_shift=0,
-        down_block_types=('DownBlock2D', 
+        down_block_types=['DownBlock2D', 
                           'MCADownBlock2D',
                           'MCADownBlock2D', 
-                          'DownBlock2D'),
-        up_block_types=('UpBlock2D', 
+                          'DownBlock2D'],
+        up_block_types=['UpBlock2D', 
                         'StyleRSIUpBlock2D',
                         'StyleRSIUpBlock2D', 
-                        'UpBlock2D'),
+                        'UpBlock2D'],
         block_out_channels=args.unet_channels, 
         layers_per_block=2,
         downsample_padding=1,
@@ -64,11 +65,6 @@ def build_scr(args):
         image_size=args.scr_image_size)
     print("Loaded SCR module for supervision successfully!")
     return scr
-
-# def build_k_feature_extractor(args):
-#     k_feature_extractor = KFeatureExtractor(
-#         K=args.k_shot)
-#     return k_feature_extractor
 
 def build_style_reconstructor(args):
     style_reconstructor = StyleReconstructor(maxK=args.max_k)

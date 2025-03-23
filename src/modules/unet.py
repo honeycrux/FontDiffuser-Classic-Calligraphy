@@ -7,17 +7,22 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from diffusers import ModelMixin
-from diffusers.configuration_utils import (ConfigMixin, 
-                                           register_to_config)
-from diffusers.utils import BaseOutput, logging
+from diffusers.models.modeling_utils import ModelMixin
+from diffusers.configuration_utils import (
+    ConfigMixin,
+    register_to_config,
+)
+from diffusers.utils.outputs import BaseOutput
+from diffusers.utils import logging
 
 from .embeddings import TimestepEmbedding, Timesteps
-from .unet_blocks import (DownBlock2D,
-                          UNetMidMCABlock2D,
-                          UpBlock2D,
-                          get_down_block,
-                          get_up_block)
+from .unet_blocks import (
+    DownBlock2D,
+    UNetMidMCABlock2D,
+    UpBlock2D,
+    get_down_block,
+    get_up_block,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -34,14 +39,14 @@ class UNet(ModelMixin, ConfigMixin):
     @register_to_config
     def __init__(
         self,
+        down_block_types: list[str],
+        up_block_types: list[str],
         sample_size: Optional[int] = None,
         in_channels: int = 4,
         out_channels: int = 4,
         flip_sin_to_cos: bool = True,
         freq_shift: int = 0,
-        down_block_types: Tuple[str] = None,
-        up_block_types: Tuple[str] = None,
-        block_out_channels: Tuple[int] = (320, 640, 1280, 1280),
+        block_out_channels: list[int] = [320, 640, 1280, 1280],
         layers_per_block: int = 1,
         downsample_padding: int = 1,
         mid_block_scale_factor: float = 1,

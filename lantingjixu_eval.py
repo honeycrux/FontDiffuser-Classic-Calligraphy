@@ -1,10 +1,11 @@
 # This script is provided by the FYP24 project group.
-# This script is the whole evaluation process for the Lantingjixu dataset.
+# This is the driver code to run whole evaluation process on the LantingjiXu dataset.
 # It generates a test profile and runs sampling, then calculates the FID, SSIM, LPIPS, and L1 metrics.
 
 import random
 import os
 import time
+from typing import Any, Optional
 import yaml
 from pathlib import Path
 
@@ -12,30 +13,56 @@ from PIL import Image
 import torch
 import torchvision.transforms as TF
 
-from sample import (arg_parse, 
-                    sampling,
-                    load_fontdiffuser_pipeline)
+from sample import (
+    arg_parse, 
+    sampling,
+    load_fontdiffuser_pipeline,
+)
 from src.metrics.font_metrics import FontMetrics
 
-def run_fontdiffuser_demo(args,
-                    pipe,
-                    content_image, 
-                    character, 
-                    style_images,
-                    sampling_step,
-                    guidance_scale,
-                    batch_size,
-                    seed,
-                    use_few_shot):
+def load_essential_args(
+        args,
+        ckpt_dir: str,
+        guidance_scale: float = 7.5,
+    ):
+    # essential args are the arguments that are required to run load_fontdiffuser_pipeline
+    # which includes arguments required to build the model and its components
+
+    args.guidance_type = 'classifier-free'
+
+    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+
+    args.ckpt_dir = ckpt_dir
+    args.guidance_scale = guidance_scale
+
+    return args
+
+def run_fontdiffuser_demo_mode(
+        args,
+        pipe,
+        content_image: Optional[Image.Image],
+        character: Optional[str],
+        style_images: list[Image.Image],
+        ttf_path: str,
+        use_few_shot: bool,
+        sampling_step: int = 20,
+        batch_size: int = 1,
+        seed: Optional[int] = None,
+    ):
+    args.method = 'multistep'
+    args.algorithm_type = 'dpmsolver++'
+
     args.demo = True
+
     args.character_input = False if content_image is not None else True
     args.content_character = character
     args.sampling_step = sampling_step
-    args.guidance_scale = guidance_scale
+    args.ttf_path = ttf_path
     args.batch_size = batch_size
+
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
 
-    sampling_args = dict(
+    sampling_args = dict[str, Any](
         args=args,
         pipe=pipe,
         content_image=content_image,
@@ -128,14 +155,8 @@ def save_results(result_info: dict, output_dir: str):
 
 def main():
     args = arg_parse()
-    args.ckpt_dir = 'ckpt/'
-    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
-
-    args.method = 'multistep'
-    args.guidance_type = 'classifier-free'
-    args.algorithm_type = 'dpmsolver++'
-
-    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+    ckpt_dir = 'ckpt/'
+    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
     ### Evaluation configuration ###
 
@@ -192,6 +213,10 @@ def main():
     print("[Eval] Evaluation begins")
     print()
 
+    load_essential_args(
+        args=args,
+        ckpt_dir=ckpt_dir,
+    )
     pipe = load_fontdiffuser_pipeline(args=args)
     toTensor = TF.ToTensor()
 
@@ -232,16 +257,16 @@ def main():
 
             character = character_file.stem
 
-            out_image = run_fontdiffuser_demo(args=args,
-                                        pipe=pipe,
-                                        content_image=None,
-                                        character=character,
-                                        style_images=style_images,
-                                        sampling_step=20,
-                                        guidance_scale=7.5,
-                                        batch_size=1,
-                                        seed=seed,
-                                        use_few_shot=use_few_shot)
+            out_image = run_fontdiffuser_demo_mode(
+                args=args,
+                pipe=pipe,
+                content_image=None,
+                character=character,
+                style_images=style_images,
+                ttf_path=ttf_path,
+                use_few_shot=use_few_shot,
+                seed=seed,
+            )
 
             assert out_image is not None
 
