@@ -86,9 +86,10 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         style_style_feature = torch.mean(style_style_feature_batch, dim=1)
 
         ### Find the average content residual features
-        style_content_residual_features = []
-        for fs_idx in range(len(style_content_residual_features_batch)):
-            style_content_residual_features.append(torch.mean(style_content_residual_features_batch[fs_idx], dim=1))
+        style_content_residual_features = [
+            torch.mean(style_content_residual_features_batch[i], dim=1)
+            for i in range(len(style_content_residual_features_batch))
+        ]
 
         # Part III: Do the rest and run the UNet
 
@@ -139,6 +140,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # Part I: Get style and content features from style and content images
 
         ## Original implementation: one style image
+
         ### Get style feature from style image
         # style_style_feature, _, style_style_residual_features = self.config["style_encoder"](style_images)
 
@@ -150,44 +152,42 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # style_content_feature, style_content_residual_features = self.config["content_encoder"](style_images)
         # style_content_residual_features.append(style_content_feature)
 
-        ## Implementation 1: take average of the K style & content features from the style images
+        ## My Implementation: K style images
 
         ### Initialization
-        style_image_list = style_images
         K = len(style_images) // 2
-        uncond_style_list = style_images[0 : K]
-        cond_style_list = style_images[K :]
+        uncond_style_batch = style_images[0 : K]
+        cond_style_batch = style_images[K :]
 
         ### Get style feature from style image *list*
-        style_style_feature_list=[]
-        for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
-            style_style_feature, _, style_style_residual_features = self.config["style_encoder"](torch.stack([uncond_style, cond_style]))
-            style_style_feature_list.append(style_style_feature)
+        uncond_style_style_feature, _, _ = self.config["style_encoder"](uncond_style_batch)
+        cond_style_style_feature, _, _ = self.config["style_encoder"](cond_style_batch)
 
         ### Get content feature from content image
         content_content_feture, content_content_residual_features = self.config["content_encoder"](content_images)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
-        style_content_residual_features_list=[]
-        for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
-            style_content_feature, style_content_residual_features = self.config["content_encoder"](torch.stack([uncond_style, cond_style]))
-            style_content_residual_features.append(style_content_feature)
-            style_content_residual_features_list.append(style_content_residual_features)
+        uncond_style_content_feature, uncond_style_content_residual_features = self.config["content_encoder"](uncond_style_batch)
+        uncond_style_content_residual_features.append(uncond_style_content_feature)
+        cond_style_content_feature, cond_style_content_residual_features = self.config["content_encoder"](cond_style_batch)
+        cond_style_content_residual_features.append(cond_style_content_feature)
 
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
 
         ## Implementation 1: take average of the K style & content features from the style images
-        ### Find the average style feature
-        style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
-        ### Find the average content residual features
-        # style_content_residual_features[i][j]: i = index of the style image, j = index of residual feature (fs) of its content encoding
-        average_features = []
-        for i in range(len(style_content_residual_features_list[0])):
-            fsi = [fs[i] for fs in style_content_residual_features_list]
-            average_features.append(torch.mean(torch.stack(fsi), dim=0))
-        style_content_residual_features = average_features
+
+        combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
+        combined_style_content_residual_features = [
+            torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
+            for i in range(len(uncond_style_content_residual_features))
+        ]
+        style_style_feature = torch.mean(combined_style_style_feature, dim=1)
+        style_content_residual_features = [
+            torch.mean(combined_style_content_residual_features[i], dim=1)
+            for i in range(len(combined_style_content_residual_features))
+        ]
 
         # Part III: Do the rest and run the UNet
 
