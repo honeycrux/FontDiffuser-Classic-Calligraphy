@@ -36,25 +36,25 @@ from utils import (
 def arg_parse():
     from configs.fontdiffuser import get_parser
 
-    parser = get_parser()   # Get the parser
-    parser.add_argument("--ckpt_dir", type=str, default=None)   # The checkpoint directory
-    parser.add_argument("--demo", action="store_true")          # If in demo mode
-    parser.add_argument("--controlnet", type=bool, default=False,   # If use controlnet
-                        help="If in demo mode, the controlnet can be added.")   # If in demo mode, the instructpix2pix can be added.
-    parser.add_argument("--character_input", action="store_true")   # If the input is character
-    parser.add_argument("--content_character", type=str, default=None)      # The content character
-    parser.add_argument("--content_image_path", type=str, default=None)     # The content image path
-    parser.add_argument("--style_image_path", type=str, default=None)       # The style image path
-    parser.add_argument("--save_image", action="store_true")        # If save the image
-    parser.add_argument("--save_image_dir", type=str, default=None,         # The saving directory
+    parser = get_parser()
+    parser.add_argument("--ckpt_dir", type=str, default=None)
+    parser.add_argument("--demo", action="store_true")
+    parser.add_argument("--controlnet", type=bool, default=False,
+                        help="If in demo mode, the controlnet can be added.")
+    parser.add_argument("--character_input", action="store_true")
+    parser.add_argument("--content_character", type=str, default=None)
+    parser.add_argument("--content_image_path", type=str, default=None)
+    parser.add_argument("--style_image_path", type=str, default=None)
+    parser.add_argument("--save_image", action="store_true")
+    parser.add_argument("--save_image_dir", type=str, default=None,
                         help="The saving directory.")
-    parser.add_argument("--device", type=str, default="cuda:0")             # The device(CPU or GPU)
-    parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")      # The ttf path
-    args = parser.parse_args()              # Parse the arguments
-    style_image_size = args.style_image_size                # The style image size
-    content_image_size = args.content_image_size            # The content image size
-    args.style_image_size = (style_image_size, style_image_size)        # convert style image size to tuple, image width and height are the same
-    args.content_image_size = (content_image_size, content_image_size)      # convert content image size to tuple, image width and height are the same
+    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")
+    args = parser.parse_args()
+    style_image_size = args.style_image_size
+    content_image_size = args.content_image_size
+    args.style_image_size = (style_image_size, style_image_size)
+    args.content_image_size = (content_image_size, content_image_size)
 
     return args
 
@@ -136,24 +136,24 @@ def image_process(args, content_image=None, style_images=None) -> Union[None, tu
 
 def load_fontdiffuser_pipeline(args):
     # Load the model state_dict
-    unet = build_unet(args=args)        # Build the unet model
-    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))       # Load the unet model state_dict
-    style_encoder = build_style_encoder(args=args)          # Build the style encoder
-    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))         # Load the style encoder state_dict
-    content_encoder = build_content_encoder(args=args)      # Build the content encoder
-    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))         # Load the content encoder state_dict
-    model = FontDiffuserModelDPM(           # Build the FontDiffuserModelDPM, do the __init__ function of FontDiffuserModelDPM
+    unet = build_unet(args=args)
+    unet.load_state_dict(torch.load(f"{args.ckpt_dir}/unet.pth"))
+    style_encoder = build_style_encoder(args=args)
+    style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))
+    content_encoder = build_content_encoder(args=args)
+    content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))
+    model = FontDiffuserModelDPM(
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder)
-    model.to(args.device)                   # Move the model to the device
+    model.to(args.device)
     print("Loaded the model state_dict successfully!")
 
     # Load the training ddpm_scheduler.
-    train_scheduler = build_ddpm_scheduler(args=args)       # Build the ddpm_scheduler
+    train_scheduler = build_ddpm_scheduler(args=args)
     print("Loaded training DDPM scheduler sucessfully!")
 
-    # Load the DPM_Solver to generate the sample, do __init__ function of FontDiffuserDPMPipeline
+    # Load the DPM_Solver to generate the sample.
     pipe = FontDiffuserDPMPipeline(         
         model=model,
         ddpm_train_scheduler=train_scheduler,
@@ -166,11 +166,11 @@ def load_fontdiffuser_pipeline(args):
     return pipe
 
 def sampling(args, pipe, content_image=None, style_images=None):
-    if not args.demo:   # If not in demo mode
+    if not args.demo:
         os.makedirs(args.save_image_dir, exist_ok=True)
         # saving sampling config
         save_args_to_yaml(args=args, output_file=f"{args.save_image_dir}/sampling_config.yaml")
-    # Set the seed
+
     if args.seed:
         set_seed(seed=args.seed)
 
@@ -188,8 +188,7 @@ def sampling(args, pipe, content_image=None, style_images=None):
         style_images = style_images.to(args.device)
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
-        # Generate the image
-        images = pipe.generate(     #call the generate function of FontDiffuserDPMPipeline in pipeline_dpm_solver.py
+        images = pipe.generate(
             content_images=content_image,
             style_images=style_images,
             batch_size=1,
