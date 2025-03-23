@@ -192,6 +192,9 @@ def main():
     progress_bar.set_description("Steps")
 
     # Convert training steps to epochs
+    # PyTorch: len(dataloader)/num_batches, is the max number of batches that can fit into len(dataset)
+    # Accelerator: Gradient accum must fit into an epoch (and the final accum may have fewer steps)
+    # i.e. num_update_steps = ceil(num_batches / gradient_accumulation_steps)
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
@@ -272,20 +275,24 @@ def main():
         return getattr(model.config, submodule_name)
 
     # Training loop
-    train_loss = []
     for epoch in range(num_train_epochs):
+        # Accumulated train loss in a global step, which may include multiple gradient accumulation steps
+        acc_train_loss = [] # distributed loss (average across all processes)
+        acc_local_train_loss = [] # local loss (only for the current process)
+
         for step, samples in enumerate(train_dataloader):
             model.train()
 
             with accelerator.accumulate(model):
                 # Forward pass
                 loss = compute_loss(samples)
+                acc_local_train_loss.append(loss.item())
 
                 # Gather the losses across all processes for logging
-                all_losses = accelerator.gather(loss.repeat(args.train_batch_size))
-                assert isinstance(all_losses, torch.Tensor)
-                avg_loss = all_losses.mean()
-                train_loss.append(avg_loss.item())
+                distributed_losses = accelerator.gather(loss.repeat(args.train_batch_size))
+                assert isinstance(distributed_losses, torch.Tensor)
+                distributed_loss = distributed_losses.mean()
+                acc_train_loss.append(distributed_loss.item())
 
                 # Backpropagate
                 accelerator.backward(loss)
@@ -299,44 +306,61 @@ def main():
             is_on_main_process = accelerator.is_main_process
             process_idx = accelerator.process_index
 
-            # Wait for all processes
-            accelerator.wait_for_everyone()
+            # Log to progress bar
+            if is_on_main_process:
+                last_lr = lr_scheduler.get_last_lr()[0]
+                logs = {"step_loss": distributed_loss.detach().item(), "lr": last_lr}
+                progress_bar.set_postfix(**logs)
 
-            # Update states (global step, progress bar, etc.)
-            if is_on_global_step and is_on_main_process:
+            # Update progress bar and global step states
+            if is_on_global_step:
                 progress_bar.update(1)
                 global_step += 1
-                avg_train_loss = sum(train_loss) / len(train_loss)
-                accelerator.log({"train_loss": avg_train_loss}, step=global_step)
-                logging.info(f"[{get_local_time()}] Global Step {global_step} => avg_train_loss = {avg_train_loss}")
-                train_loss = []
 
-            # Wait for all processes
+            is_logging_step = is_on_global_step and global_step % args.log_interval == 0
+            is_checkpoint_step = is_on_global_step and global_step % args.ckpt_interval == 0 or global_step >= args.max_train_steps
+
+            # Compute and log loss values
+            if is_on_global_step:
+                avg_train_loss = sum(acc_train_loss) / len(acc_train_loss)
+                avg_local_train_loss = sum(acc_local_train_loss) / len(acc_local_train_loss)
+
+                ## Log information to tensorboard
+                accelerator.log({"train_loss": avg_train_loss}, step=global_step)
+
+                ## Log information to file
+                if is_logging_step and is_on_main_process:
+                    logging.info(f"[{get_local_time()}] Global Step {global_step} => avg_train_loss = {avg_train_loss}")
+
+                ## Wait for everyone
+                accelerator.wait_for_everyone()
+
+                ## Log information to file for each process
+                if is_logging_step:
+                    logging.info(f"[{get_local_time()}] Proc {process_idx}: Global Step {global_step} => acc_local_train_loss = {acc_local_train_loss}")
+
+                ## Reset the accumulated loss states
+                acc_train_loss = []
+                acc_local_train_loss = []
+
+            ## Wait for everyone
             accelerator.wait_for_everyone()
 
-            # For all processes, log to progress bar
-            last_lr = lr_scheduler.get_last_lr()[0]
-            logs = {"step_loss": loss.detach().item(), "lr": last_lr}
-            if global_step % args.log_interval == 0:
-                logging.info(f"[{get_local_time()}] Proc {process_idx}: Global Step {global_step} => train_loss = {loss}")
-            progress_bar.set_postfix(**logs)
-
             # Save checkpoint
-            if is_on_global_step and is_on_main_process:
-                if global_step % args.ckpt_interval == 0 or global_step > args.max_train_steps:
-                    save_dir = f"{args.output_dir}/global_step_{global_step}"
-                    os.makedirs(save_dir, exist_ok=True)
-                    torch.save(get_submodel(model, "unet").state_dict(), f"{save_dir}/unet.pth")
-                    torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
-                    torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
-                    torch.save({
-                        "model": model.state_dict(),
-                        "optimizer": optimizer.state_dict(),
-                        "lr_scheduler": lr_scheduler.state_dict(),
-                        "global_step": global_step,
-                    }, f"{save_dir}/whole_model.pth")
-                    logging.info(f"[{get_local_time()}] Save the checkpoint on global step {global_step}")
-                    progress_bar.write("Save the checkpoint on global step {}".format(global_step))
+            if is_checkpoint_step and is_on_main_process:
+                save_dir = f"{args.output_dir}/global_step_{global_step}"
+                os.makedirs(save_dir, exist_ok=True)
+                torch.save(get_submodel(model, "unet").state_dict(), f"{save_dir}/unet.pth")
+                torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
+                torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
+                torch.save({
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "lr_scheduler": lr_scheduler.state_dict(),
+                    "global_step": global_step,
+                }, f"{save_dir}/whole_model.pth")
+                logging.info(f"[{get_local_time()}] Save the checkpoint on global step {global_step}")
+                progress_bar.write("Save the checkpoint on global step {}".format(global_step))
 
             # Quit
             if global_step >= args.max_train_steps:

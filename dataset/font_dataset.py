@@ -25,11 +25,11 @@ def parse_target_image_name(target_image_name: str):
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, transforms=None, scr=False):
+    def __init__(self, args, phase, transforms, scr):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.scr = scr
+        self.scr = bool(scr)
         if self.scr:
             self.num_neg = args.num_neg
         
@@ -76,10 +76,9 @@ class FontDataset(Dataset):
         target_image = Image.open(target_image_path).convert("RGB")
         nonorm_target_image = self.nonorm_transforms(target_image)
 
-        if self.transforms is not None:
-            content_image = self.transforms[0](content_image)
-            style_image = self.transforms[1](style_image)
-            target_image = self.transforms[2](target_image)
+        content_image = self.transforms[0](content_image)
+        style_image = self.transforms[1](style_image)
+        target_image = self.transforms[2](target_image)
         
         sample = {
             "content_image": content_image,
@@ -102,14 +101,17 @@ class FontDataset(Dataset):
                 choose_neg_names.append(choose_neg_name)
 
             # Load neg_images
+            neg_images = None
             for i, neg_name in enumerate(choose_neg_names):
                 neg_image = Image.open(neg_name).convert("RGB")
-                if self.transforms is not None:
-                    neg_image = self.transforms[2](neg_image)
+                neg_image = self.transforms[2](neg_image)
+                assert isinstance(neg_image, torch.Tensor)
                 if i == 0:
                     neg_images = neg_image[None, :, :, :]
                 else:
+                    assert neg_images is not None
                     neg_images = torch.cat([neg_images, neg_image[None, :, :, :]], dim=0)
+            assert neg_images is not None
             sample["neg_images"] = neg_images
 
         return sample

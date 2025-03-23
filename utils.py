@@ -49,6 +49,7 @@ def x0_from_epsilon(scheduler, noise_pred, x_t, timesteps):
     """Return the x_0 from epsilon
     """
     batch_size = noise_pred.shape[0]
+    pred_original_sample = None
     for i in range(batch_size):
         noise_pred_i = noise_pred[i]
         noise_pred_i = noise_pred_i[None, :]
@@ -67,8 +68,10 @@ def x0_from_epsilon(scheduler, noise_pred, x_t, timesteps):
         if i == 0:
             pred_original_sample = pred_original_sample_i
         else:
+            assert pred_original_sample is not None
             pred_original_sample = torch.cat((pred_original_sample, pred_original_sample_i), dim=0)
 
+    assert pred_original_sample is not None
     return pred_original_sample
 
 
