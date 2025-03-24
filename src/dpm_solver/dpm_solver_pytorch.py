@@ -141,19 +141,24 @@ class NoiseScheduleVP:
         """
         Compute alpha_t of a given continuous-time label t in [0, T].
         """
-        return torch.exp(self.marginal_log_mean_coeff(t))
+        log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
+        return torch.exp(log_mean_coeff)
 
     def marginal_std(self, t):
         """
         Compute sigma_t of a given continuous-time label t in [0, T].
         """
-        return torch.sqrt(1. - torch.exp(2. * self.marginal_log_mean_coeff(t)))
+        log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
+        return torch.sqrt(1. - torch.exp(2. * log_mean_coeff))
 
     def marginal_lambda(self, t):
         """
         Compute lambda_t = log(alpha_t) - log(sigma_t) of a given continuous-time label t in [0, T].
         """
         log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
         log_std = 0.5 * torch.log(1. - torch.exp(2. * log_mean_coeff))
         return log_mean_coeff - log_std
 
@@ -654,6 +659,7 @@ class DPM_Solver:
         sigma_s, sigma_s1, sigma_t = ns.marginal_std(s), ns.marginal_std(s1), ns.marginal_std(t)
         alpha_s1, alpha_t = torch.exp(log_alpha_s1), torch.exp(log_alpha_t)
 
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_11 = torch.expm1(-r1 * h)
             phi_1 = torch.expm1(-h)
@@ -700,6 +706,7 @@ class DPM_Solver:
                     - (sigma_t * phi_1) * model_s
                     - (1. / r1) * (sigma_t * (phi_1 / h - 1.)) * (model_s1 - model_s)
                 )
+        assert x_t is not None
         if return_intermediate:
             return x_t, {'model_s': model_s, 'model_s1': model_s1}
         else:
@@ -742,6 +749,7 @@ class DPM_Solver:
         sigma_s, sigma_s1, sigma_s2, sigma_t = ns.marginal_std(s), ns.marginal_std(s1), ns.marginal_std(s2), ns.marginal_std(t)
         alpha_s1, alpha_s2, alpha_t = torch.exp(log_alpha_s1), torch.exp(log_alpha_s2), torch.exp(log_alpha_t)
 
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_11 = torch.expm1(-r1 * h)
             phi_12 = torch.expm1(-r2 * h)
@@ -821,6 +829,7 @@ class DPM_Solver:
                     - (sigma_t * phi_3) * D2
                 )
 
+        assert x_t is not None
         if return_intermediate:
             return x_t, {'model_s': model_s, 'model_s1': model_s1, 'model_s2': model_s2}
         else:
@@ -854,6 +863,7 @@ class DPM_Solver:
         h = lambda_t - lambda_prev_0
         r0 = h_0 / h
         D1_0 = (1. / r0) * (model_prev_0 - model_prev_1)
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_1 = torch.expm1(-h)
             if solver_type == 'dpmsolver':
@@ -882,6 +892,7 @@ class DPM_Solver:
                     - (sigma_t * phi_1) * model_prev_0
                     - (sigma_t * (phi_1 / h - 1.)) * D1_0
                 )
+        assert x_t is not None
         return x_t
 
     def multistep_dpm_solver_third_update(self, x, model_prev_list, t_prev_list, t, solver_type='dpmsolver'):
@@ -1032,6 +1043,7 @@ class DPM_Solver:
             t = ns.inverse_lambda(lambda_s + h)
             x_lower, lower_noise_kwargs = lower_update(x, s, t)
             x_higher = higher_update(x, s, t, **lower_noise_kwargs)
+            assert isinstance(x, torch.Tensor)
             delta = torch.max(torch.ones_like(x).to(x) * atol, rtol * torch.max(torch.abs(x_lower), torch.abs(x_prev)))
             norm_fn = lambda v: torch.sqrt(torch.square(v.reshape((v.shape[0], -1))).mean(dim=-1, keepdim=True))
             E = norm_fn((x_higher - x_lower) / delta).max()
@@ -1201,6 +1213,7 @@ class DPM_Solver:
             assert method in ['multistep', 'singlestep', 'singlestep_fixed'], "Cannot use adaptive solver when correcting_xt_fn is not None"
         device = x.device
         intermediates = []
+        step = None
         with torch.no_grad():
             if method == 'adaptive':
                 x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)
@@ -1248,12 +1261,16 @@ class DPM_Solver:
                     if step < steps:
                         model_prev_list[-1] = self.model_fn(x, t)
             elif method in ['singlestep', 'singlestep_fixed']:
+                orders = None
+                timesteps_outer = None
                 if method == 'singlestep':
                     timesteps_outer, orders = self.get_orders_and_timesteps_for_singlestep_solver(steps=steps, order=order, skip_type=skip_type, t_T=t_T, t_0=t_0, device=device)
                 elif method == 'singlestep_fixed':
                     K = steps // order
                     orders = [order,] * K
                     timesteps_outer = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=K, device=device)
+                assert orders is not None
+                assert timesteps_outer is not None
                 for step, order in enumerate(orders):
                     s, t = timesteps_outer[step], timesteps_outer[step + 1]
                     timesteps_inner = self.get_time_steps(skip_type=skip_type, t_T=s.item(), t_0=t.item(), N=order, device=device)
@@ -1272,6 +1289,7 @@ class DPM_Solver:
                 t = torch.ones((1,)).to(device) * t_0
                 x = self.denoise_to_zero_fn(x, t)
                 if self.correcting_xt_fn is not None:
+                    assert isinstance(step, int)
                     x = self.correcting_xt_fn(x, t, step + 1)
                 if return_intermediate:
                     intermediates.append(x)
