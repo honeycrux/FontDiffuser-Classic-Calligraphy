@@ -110,8 +110,8 @@ def image_process(args, content_image=None, style_image=None) -> Union[None, tup
 
     ## Transform images to tensors
 
-    content_transforms = get_transform_function(target_size=args.content_image_size)
-    style_transforms = get_transform_function(target_size=args.style_image_size)
+    content_transforms = get_transform_function(target_size=args.content_image_size, normalize=True)
+    style_transforms = get_transform_function(target_size=args.style_image_size, normalize=True)
 
     # Apply the transform to the content image
     content_image = content_transforms(content_image_pil)[None, :]

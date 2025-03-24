@@ -126,9 +126,9 @@ def main():
         content_encoder.requires_grad_(False)
 
     # Load transform functions
-    content_transforms = get_transform_function(args.content_image_size)
-    style_transforms = get_transform_function(args.style_image_size)
-    target_transforms = get_transform_function((args.resolution, args.resolution))
+    content_transforms = get_transform_function(target_size=args.content_image_size, normalize=True)
+    style_transforms = get_transform_function(target_size=args.style_image_size, normalize=True)
+    target_transforms = get_transform_function(target_size=(args.resolution, args.resolution), normalize=True)
 
     # Load training dataset
     train_dataset = FontDataset(

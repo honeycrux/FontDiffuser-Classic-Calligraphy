@@ -128,7 +128,7 @@ def ttf2im(font, char, fsize=128):
     
     return pil_im
 
-def get_transform_function(target_size: tuple[int, int]):
+def get_transform_function(target_size: tuple[int, int], normalize: bool):
     '''Get a transform function for transforming the input image to a tensor with the specified resolution.
     This pads the image to make it square and resizes it to the resolution specified.
     '''
@@ -144,13 +144,17 @@ def get_transform_function(target_size: tuple[int, int]):
             (max_dim - height + 1) // 2  # bottom
         )
 
-        image_transforms = transforms.Compose([
+        transforms_list = [
             transforms.Pad(padding=padding, fill=255, padding_mode='constant'),
             transforms.Resize(target_size, 
                             interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ])
+        ]
+
+        if normalize:
+            transforms_list.append(transforms.Normalize([0.5], [0.5]))
+
+        image_transforms = transforms.Compose(transforms_list)
 
         transformed_image = image_transforms(img)
         assert isinstance(transformed_image, torch.Tensor)

@@ -6,16 +6,10 @@ import hashlib
 
 import torch
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
+
+from utils import get_transform_function
 
 image_suffix = "png"
-
-def get_nonorm_transform(resolution):
-    nonorm_transform =  transforms.Compose(
-            [transforms.Resize((resolution, resolution), 
-                               interpolation=transforms.InterpolationMode.BILINEAR), 
-             transforms.ToTensor()])
-    return nonorm_transform
 
 def parse_target_image_name(target_image_name: str):
     # Input Format: style+content[+optional-suffix]
@@ -57,7 +51,7 @@ class FontDataset(Dataset):
         # Get Data path
         self.get_path()
         self.transforms = transforms
-        self.nonorm_transforms = get_nonorm_transform(args.resolution)
+        self.nonorm_transforms = get_transform_function(target_size=(args.resolution, args.resolution), normalize=False)
 
     def get_path(self):
         # Find target image list style to images map
