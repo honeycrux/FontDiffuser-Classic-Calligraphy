@@ -159,7 +159,7 @@ def main():
             is_validation_mode=True,
         )
         validation_dataloader = torch.utils.data.DataLoader(
-            validation_dataset, shuffle=False, batch_size=args.train_batch_size, collate_fn=CollateFN())
+            validation_dataset, shuffle=False, batch_size=args.validation_batch_size, collate_fn=CollateFN())
     
     # Build optimizer and learning rate
     if args.scale_lr:
@@ -208,8 +208,13 @@ def main():
 
     # Prepare progress bar
     # Only show the progress bar once on each machine
-    progress_bar = tqdm(initial=global_step, total=args.max_train_steps, disable=not accelerator.is_local_main_process, position=0)
-    progress_bar.set_description("Steps")
+    progress_bar = tqdm(
+        initial=global_step,
+        total=args.max_train_steps,
+        disable=not accelerator.is_local_main_process,
+        desc="Steps",
+        position=0,
+    )
 
     # Compute training numbers (convert training steps to epochs, etc.)
     # PyTorch: len(dataloader)/num_batches is the max number of batches that can fit into len(dataset)
@@ -339,7 +344,7 @@ def main():
                 global_step += 1
 
             is_last_step = global_step >= args.max_train_steps
-            is_logging_step = is_on_global_step and global_step % args.log_interval == 0
+            is_logging_step = is_on_global_step and (is_last_step or global_step % args.log_interval == 0)
             is_checkpoint_step = is_on_global_step and (is_last_step or global_step % args.ckpt_interval == 0)
             is_validation_step =  is_on_global_step and args.use_validation and (is_last_step or global_step % args.validation_interval == 0)
 
@@ -396,7 +401,13 @@ def main():
                 all_val_losses: list[torch.Tensor] = []
 
                 ## Prepare validation progress bar
-                val_progress_bar = tqdm(validation_dataloader, total=num_validation_steps, desc="Validation", leave=False)
+                val_progress_bar = tqdm(
+                    validation_dataloader,
+                    total=num_validation_steps,
+                    disable=not accelerator.is_local_main_process,
+                    desc="Validation",
+                    leave=False,
+                )
 
                 model.eval()
                 for val_step, val_samples in enumerate(val_progress_bar):
@@ -412,8 +423,8 @@ def main():
 
                     ## Log to validation progress bar
                     if is_on_main_process:
-                        val_logs = {"val_step": val_step, "val_loss": distributed_val_loss.detach().item()}
-                        val_progress_bar.set_postfix(**val_logs)
+                        val_logs = {"val_loss": distributed_val_loss.detach().item()}
+                        val_progress_bar.set_postfix(val_logs)
 
                 ## Compute and log validation loss values
                 if accelerator.is_main_process:
