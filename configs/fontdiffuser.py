@@ -56,7 +56,7 @@ def get_parser():
     ## step
     parser.add_argument("--max_train_steps", type=int, default=440000, 
                         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",)
-    parser.add_argument("--ckpt_interval", type=int,default=40000, help="The step begin to validate.")
+    parser.add_argument("--ckpt_interval", type=int,default=40000, help="The checkpoint saving interval when training.")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, 
                         help="Number of updates steps to accumulate before performing a backward/update pass.",)
     parser.add_argument("--log_interval", type=int, default=100, help="The log interval of training.")

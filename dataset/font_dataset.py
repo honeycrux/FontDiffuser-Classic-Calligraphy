@@ -24,11 +24,11 @@ def parse_target_image_name(target_image_name: str):
     content = target_components[1]
     return style, content
 
-def is_for_validation(filename: str, validation_factor: int = 10):
+def is_for_validation(image_char: str, validation_factor: int = 10):
     # Using the filename of a data, determine whether it is for validation
     # Overall, (1 / validation_factor) of the data is determined as validation data
 
-    hash_value = int(hashlib.md5(filename.encode()).hexdigest(), 16)
+    hash_value = int(hashlib.md5(image_char.encode()).hexdigest(), 16)
     is_validation = hash_value % validation_factor == 0
     return is_validation
 
@@ -63,27 +63,52 @@ class FontDataset(Dataset):
     def get_path(self):
         # Find target image list style to images map
         self.target_images: list[str] = []
+        self.content_to_images: dict[str, str] = {}
         self.style_to_images: dict[str, defaultdict[str, list[str]]] = {}
+        content_image_dir = Path(self.root) / self.phase / "ContentImage"
         target_image_dir = Path(self.root) / self.phase / "TargetImage"
+        message_prefix = f"In {'validation' if self.is_validation_mode else 'training'} set:"
         for style in target_image_dir.iterdir():
             if not style.is_dir():
                 continue
             style_related_images = defaultdict[str, list[str]](list)
             for img in style.iterdir():
-                if self.use_validation and self.is_validation_mode != is_for_validation(img.stem, self.validation_factor):
-                    continue
                 image_style, image_char = parse_target_image_name(img.stem)
+                if self.use_validation and self.is_validation_mode != is_for_validation(image_char=image_char, validation_factor=self.validation_factor):
+                    continue
                 img_path = img.as_posix()
-                assert style.stem == image_style, f"Style mismatch: Expected {style.stem}, but got {image_style} in {img_path}"
-                assert image_suffix == img.suffix[1:], f"Image suffix mismatch: Expected {image_suffix}, but got {img.suffix} in {img_path}"
+                if image_char not in self.content_to_images:
+                    content_path = content_image_dir / f"{image_char}.{image_suffix}"
+                    assert content_path.exists(), f"{message_prefix} Content image {image_char} required by style {image_style} not found in {content_path}"
+                    self.content_to_images[image_char] = content_path.as_posix()
+                assert style.stem == image_style, f"{message_prefix} Style mismatch: Expected {style.stem}, but got {image_style} in {img_path}"
+                assert image_suffix == img.suffix[1:], f"{message_prefix} Image suffix mismatch: Expected {image_suffix}, but got {img.suffix} in {img_path}"
                 self.target_images.append(img_path)
                 style_related_images[image_char].append(img_path)
             self.style_to_images[style.stem] = style_related_images
 
+        # Check the number of style images available at every situation
+        required_style_images = self.k_shot
+        for style, char_images_map in self.style_to_images.items():
+            style_images_total = sum([len(imlist) for imlist in char_images_map.values()])
+            for char, images in char_images_map.items():
+                style_candidates_total = style_images_total - len(images)
+                assert style_candidates_total >= required_style_images, f"{message_prefix} When simulating training with style {style} and char {char}, the number of style images should be at least {required_style_images}, but got {style_candidates_total} style image candidates."
+
         # SCR: Check the number of styles
-        num_styles = len(self.style_to_images.keys())
+        num_styles = len(self.style_to_images)
         if self.use_scr:
-            assert num_styles >= self.num_neg + 1, f"To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
+            assert num_styles >= self.num_neg + 1, f"{message_prefix} To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
+
+        # SCR: Check if dataset is balanced (all styles have the same set of characters)
+        if self.use_scr:
+            universe_char_set = set(self.content_to_images.keys())
+            empty_set = set()
+            for style, char_images_map in self.style_to_images.items():
+                style_char_set = set(char_images_map.keys())
+                missing_set = universe_char_set - style_char_set
+                if missing_set != empty_set:
+                    raise Exception(f"{message_prefix} When using SCR, a balance dataset is required (all styles should have the same set of characters), but got missing characters {missing_set} in style {style}.")
 
         # TODO: Warns if num_style_images < self.k_shot for any style
 
@@ -95,14 +120,14 @@ class FontDataset(Dataset):
         style, content = parse_target_image_name(target_image_name)
         
         # Read content image
-        content_image_path = f"{self.root}/{self.phase}/ContentImage/{content}.{image_suffix}"
+        content_image_path = self.content_to_images[content]
         content_image = Image.open(content_image_path).convert('RGB')
         content_image = self.transforms[0](content_image)
 
         # Random sample used for style image
-        style_imlist_map = self.style_to_images[style].copy()
-        style_imlist_map.pop(content)
-        candidate_style_images = [im for imlist in style_imlist_map.values() for im in imlist]
+        char_images_map = self.style_to_images[style].copy()
+        char_images_map.pop(content)
+        candidate_style_images = [im for imlist in char_images_map.values() for im in imlist]
 
         # Original implementation: Get 1 style image
         # style_image_path = random.choice(candidate_style_images)
@@ -132,20 +157,18 @@ class FontDataset(Dataset):
         if self.use_scr:
             # Get neg image from the different style of the same content
             style_list = list(self.style_to_images.keys())
-            style_index = style_list.index(style)
-            style_list.pop(style_index)
-            choose_neg_names = []
-            for i in range(self.num_neg):
-                choose_style = random.choice(style_list)
-                choose_index = style_list.index(choose_style)
-                style_list.pop(choose_index)
-                choose_neg_name = f"{self.root}/train/TargetImage/{choose_style}/{choose_style}+{content}.{image_suffix}"
-                choose_neg_names.append(choose_neg_name)
+            style_list.remove(style)
+            chosen_neg_paths = []
+            chosen_styles = random.sample(style_list, self.num_neg)
+            chosen_neg_paths = [
+                random.choice(self.style_to_images[chosen_style][content])
+                for chosen_style in chosen_styles
+            ]
 
             # Load neg_images
             neg_images = None
-            for i, neg_name in enumerate(choose_neg_names):
-                neg_image = Image.open(neg_name).convert("RGB")
+            for i, neg_path in enumerate(chosen_neg_paths):
+                neg_image = Image.open(neg_path).convert("RGB")
                 neg_image = self.transforms[2](neg_image)
                 assert isinstance(neg_image, torch.Tensor)
                 if i == 0:
