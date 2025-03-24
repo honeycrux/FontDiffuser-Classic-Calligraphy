@@ -47,7 +47,7 @@ def arg_parse():
     parser.add_argument("--save_image", action="store_true")
     parser.add_argument("--save_image_dir", type=str, default=None,
                         help="The saving directory.")
-    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--ttf_path", type=str, default="ttf/KaiXinSongA.ttf")
     args = parser.parse_args()
     style_image_size = args.style_image_size

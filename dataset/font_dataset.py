@@ -80,7 +80,7 @@ class FontDataset(Dataset):
             self.style_to_images[style.stem] = style_related_images
 
         # SCR: Check the number of styles
-        num_styles = len(self.style_to_images.keys())
+        num_styles = len(self.style_to_images)
         if self.use_scr:
             assert num_styles >= self.num_neg + 1, f"To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
 
@@ -96,9 +96,9 @@ class FontDataset(Dataset):
         content_image = Image.open(content_image_path).convert('RGB')
 
         # Random sample used for style image
-        style_imlist_map = self.style_to_images[style].copy()
-        style_imlist_map.pop(content)
-        candidate_style_images = [im for imlist in style_imlist_map.values() for im in imlist]
+        char_images_map = self.style_to_images[style].copy()
+        char_images_map.pop(content)
+        candidate_style_images = [im for imlist in char_images_map.values() for im in imlist]
 
         style_image_path = random.choice(candidate_style_images)
         style_image = Image.open(style_image_path).convert("RGB")
@@ -120,7 +120,7 @@ class FontDataset(Dataset):
         
         if self.use_scr:
             # Get neg image from the different style of the same content
-            style_list = list(self.style_to_images.keys())
+            style_list = list(self.style_to_images)
             style_index = style_list.index(style)
             style_list.pop(style_index)
             choose_neg_names = []
@@ -128,7 +128,7 @@ class FontDataset(Dataset):
                 choose_style = random.choice(style_list)
                 choose_index = style_list.index(choose_style)
                 style_list.pop(choose_index)
-                choose_neg_name = f"{self.root}/train/TargetImage/{choose_style}/{choose_style}+{content}.{image_suffix}"
+                choose_neg_name = f"{self.root}/{self.phase}/TargetImage/{choose_style}/{choose_style}+{content}.{image_suffix}"
                 choose_neg_names.append(choose_neg_name)
 
             # Load neg_images
