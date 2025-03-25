@@ -33,7 +33,9 @@ class SpatialTransformer(nn.Module):
         depth: int = 1,
         dropout: float = 0.0,
         num_groups: int = 32,
+        context_channels: Optional[int] = None,
         context_dim: Optional[int] = None,
+        valid_ratio: tuple[int, int]=(1, 1),
     ):
         super().__init__()
         self.n_heads = n_heads
@@ -46,7 +48,16 @@ class SpatialTransformer(nn.Module):
 
         self.transformer_blocks = nn.ModuleList(
             [
-                BasicTransformerBlock(query_dim=query_dim, n_heads=n_heads, d_head=d_head, dropout=dropout, context_dim=context_dim)
+                BasicTransformerBlock(
+                    query_channels=in_channels,
+                    query_dim=query_dim,
+                    n_heads=n_heads,
+                    d_head=d_head,
+                    dropout=dropout,
+                    context_channels=context_channels,
+                    context_dim=context_dim,
+                    valid_ratio=valid_ratio,
+                )
                 for d in range(depth)
             ]
         )
@@ -55,6 +66,7 @@ class SpatialTransformer(nn.Module):
 
     def _set_attention_slice(self, slice_size):
         for block in self.transformer_blocks:
+            assert block is torch.Module
             block._set_attention_slice(slice_size)
 
     def forward(self, hidden_states, context=None):
@@ -91,11 +103,14 @@ class BasicTransformerBlock(nn.Module):
 
     def __init__(
         self,
+        query_channels: int,
         query_dim: int,
         n_heads: int,
         d_head: int,
         dropout=0.0,
+        context_channels: Optional[int] = None,
         context_dim: Optional[int] = None,
+        valid_ratio: tuple[int, int]=(1, 1),
         gated_ff: bool = True,
         checkpoint: bool = True,
     ):
@@ -112,6 +127,20 @@ class BasicTransformerBlock(nn.Module):
         self.norm3 = nn.LayerNorm(query_dim)
         self.checkpoint = checkpoint
 
+        # Prepare attention mask 1
+        valid_query_channels = query_channels * valid_ratio[0] // valid_ratio[1]
+        attn_mask_1 = torch.ones(query_channels, query_channels, dtype=torch.int, requires_grad=False)
+        attn_mask_1[:valid_query_channels, :valid_query_channels] = 0
+        self.register_buffer("attn_mask_1", attn_mask_1)
+
+        # Prepare attention mask 2
+        attn_mask_2 = attn_mask_1
+        if context_channels is not None:
+            valid_context_channels = context_channels * valid_ratio[0] // valid_ratio[1]
+            attn_mask_2 = torch.ones(query_channels, context_channels, dtype=torch.int, requires_grad=False)
+            attn_mask_2[:valid_query_channels, :valid_context_channels] = 0
+        self.register_buffer("attn_mask_2", attn_mask_2)
+
     def _set_attention_slice(self, slice_size):
         self.attn1._slice_size = slice_size
         self.attn2._slice_size = slice_size
@@ -119,9 +148,9 @@ class BasicTransformerBlock(nn.Module):
     def forward(self, hidden_states, context=None):
         hidden_states = hidden_states.contiguous() if hidden_states.device.type == "mps" else hidden_states
         # print("hidden_states (before attn1)", hidden_states.shape)
-        hidden_states = self.attn1(self.norm1(hidden_states)) + hidden_states
+        hidden_states = self.attn1(self.norm1(hidden_states), mask=self.attn_mask_1) + hidden_states
         # print("hidden_states (after attn1)", hidden_states.shape)
-        hidden_states = self.attn2(self.norm2(hidden_states), context=context) + hidden_states
+        hidden_states = self.attn2(self.norm2(hidden_states), context=context, mask=self.attn_mask_2) + hidden_states
         # print("hidden_states (after attn2)", hidden_states.shape)
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
         # print("hidden_states (after ff)", hidden_states.shape)
@@ -186,7 +215,7 @@ class CrossAttention(nn.Module):
     """
 
     def __init__(
-        self, query_dim: int, context_dim: Optional[int] = None, heads: int = 8, dim_head: int = 64, dropout: int = 0.0
+        self, query_dim: int, context_dim: Optional[int] = None, heads: int = 8, dim_head: int = 64, dropout: float = 0.0
     ):
         super().__init__()
         inner_dim = dim_head * heads
@@ -237,25 +266,24 @@ class CrossAttention(nn.Module):
         key = self.reshape_heads_to_batch_dim(key)
         value = self.reshape_heads_to_batch_dim(value)
 
-        # TODO(PVP) - mask is currently never used. Remember to re-implement when used
-
-        # attention, what we cannot get enough of
-
         if self._slice_size is None or query.shape[0] // self._slice_size == 1:
-            hidden_states = self._attention(query, key, value)
+            hidden_states = self._attention(query, key, value, mask=mask)
         else:
-            hidden_states = self._sliced_attention(query, key, value, sequence_length, dim)
+            hidden_states = self._sliced_attention(query, key, value, sequence_length, dim, mask=mask)
 
         return self.to_out(hidden_states)
 
-    def _attention(self, query, key, value):
-        # TODO: use baddbmm for better performance
+    def _attention(self, query, key, value, mask=None):
         # print("query:", query.shape)
         # print("key:", key.shape)
         # print("value:", value.shape)
-        # key_transpose = key.transpose(-1, -2)
-        # attention_scores = torch.baddbmm(torch.zeros(query.shape[0], key_transpose.shape[1], device=query.device), query, key_transpose, beta=0, alpha=self.scale)
-        attention_scores = torch.matmul(query, key.transpose(-1, -2)) * self.scale
+        B, N, D = query.shape
+        B, M, D = key.shape
+        key_transpose = key.transpose(-1, -2)
+        attention_scores = torch.baddbmm(torch.zeros(B, N, M, device=query.device), query, key_transpose, beta=1.0, alpha=self.scale)
+        if mask is not None:
+            mask = mask.bool()
+            attention_scores = attention_scores.masked_fill_(mask, float("-inf"))
         attention_probs = attention_scores.softmax(dim=-1)
         # compute attention output
         hidden_states = torch.matmul(attention_probs, value)
@@ -263,7 +291,7 @@ class CrossAttention(nn.Module):
         hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
         return hidden_states
 
-    def _sliced_attention(self, query, key, value, sequence_length, dim):
+    def _sliced_attention(self, query, key, value, sequence_length, dim, mask=None):
         batch_size_attention = query.shape[0]
         hidden_states = torch.zeros(
             (batch_size_attention, sequence_length, dim // self.heads), device=query.device, dtype=query.dtype
@@ -275,6 +303,7 @@ class CrossAttention(nn.Module):
             attn_slice = (
                 torch.matmul(query[start_idx:end_idx], key[start_idx:end_idx].transpose(1, 2)) * self.scale
             )  # TODO: use baddbmm for better performance
+            # TODO: implement mask
             attn_slice = attn_slice.softmax(dim=-1)
             attn_slice = torch.matmul(attn_slice, value[start_idx:end_idx])
 
@@ -368,8 +397,12 @@ class ChannelAttnBlock(nn.Module):
             hidden_states = hidden_states + concat_feature
 
         # Down channel
+        # print("hidden_states (before down_channel)", hidden_states.shape)
         hidden_states = self.norm3(hidden_states)
+        # print("hidden_states (after norm3)", hidden_states.shape)
         hidden_states = self.nonlinearity(hidden_states)
+        # print("hidden_states (after nonlinearity)", hidden_states.shape)
         hidden_states = self.down_channel(hidden_states)
+        # print("hidden_states (after down_channel)", hidden_states.shape)
 
         return hidden_states

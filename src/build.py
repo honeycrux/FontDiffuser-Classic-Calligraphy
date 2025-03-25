@@ -67,7 +67,7 @@ def build_scr(args):
     return scr
 
 def build_style_reconstructor(args):
-    style_reconstructor = StyleReconstructor(maxK=args.max_k)
+    style_reconstructor = StyleReconstructor(k_shot=args.k_shot, max_k=args.max_k)
     return style_reconstructor
 
 

@@ -3,19 +3,30 @@ import torch.nn as nn
 from .attention_for_reconstructor import SpatialTransformer, ChannelAttnBlock
 
 class StyleReconstructor(nn.Module):
-    def __init__(self, 
-                 maxK=256):
+    def __init__(
+            self, 
+            k_shot,
+            max_k=256
+        ):
         super().__init__()
 
-        self.maxK = maxK
-        in_channels = maxK * 3 * 3 # (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C) ; d_query = C
-        query_dim = 1024
+        self.k_shot = k_shot
+        self.max_k = max_k
+
         d_embed = 128
         n_heads = 8
         d_head = d_embed // n_heads
-        context_dim = 256 * 12 # (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H) ; d_context = C * H
+        valid_ratio = (k_shot, max_k)
 
-        ca1_in_channels = maxK
+        # Style encoding: (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C) ; d_query = C
+        in_channels = max_k * 3 * 3 # K * H * W
+        query_dim = 1024 # C
+        # Content encoding (last layer): (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H)
+        context_dim = 256 * 12 # C * H
+
+        st1_context_channels = max_k * 12 # K * W
+        st2_context_channels = 12 # K * W (from content content residual features, K=1)
+        ca1_in_channels = max_k
         ca1_out_channels = 1
 
         # Spacial transformer 1
@@ -24,7 +35,9 @@ class StyleReconstructor(nn.Module):
             n_heads=n_heads,
             d_head=d_head,
             query_dim=query_dim,
+            context_channels=st1_context_channels,
             context_dim=context_dim,
+            valid_ratio=valid_ratio,
         )
 
         # Spacial transformer 2
@@ -33,7 +46,9 @@ class StyleReconstructor(nn.Module):
             n_heads=n_heads,
             d_head=d_head,
             query_dim=query_dim,
+            context_channels=st2_context_channels,
             context_dim=context_dim,
+            valid_ratio=valid_ratio,
         )
 
         # Channel attention 1
@@ -47,24 +62,25 @@ class StyleReconstructor(nn.Module):
         # for style images style & content feature, if K < maxK, pad with zeros
         # if K > maxK, truncate to maxK
 
-        if style_style_feature.shape[1] < self.maxK:
-            style_shape = (style_style_feature.shape[0], self.maxK - style_style_feature.shape[1], *style_style_feature.shape[2:])
+        if style_style_feature.shape[1] < self.max_k:
+            style_shape = (style_style_feature.shape[0], self.max_k - style_style_feature.shape[1], *style_style_feature.shape[2:])
             style_style_feature = torch.cat(
                 [style_style_feature, torch.zeros(style_shape).to(style_style_feature.device)],
                 dim=1,
             )
-        elif style_style_feature.shape[1] > self.maxK:
-            style_style_feature = style_style_feature[:, :self.maxK, ...]
+        elif style_style_feature.shape[1] > self.max_k:
+            style_style_feature = style_style_feature[:, :self.max_k, ...]
 
-        for i, scrf_final in enumerate(style_content_residual_features):
-            if scrf_final.shape[1] < self.maxK:
-                scrf_shape = (scrf_final.shape[0], self.maxK - scrf_final.shape[1], *scrf_final.shape[2:])
+        for i, scrf in enumerate(style_content_residual_features):
+            BB, KK, CC, HH, WW = scrf.shape
+            if KK < self.max_k:
+                scrf_shape = (BB, self.max_k - KK, CC, HH, WW)
                 style_content_residual_features[i] = torch.cat(
-                    [scrf_final, torch.zeros(scrf_shape).to(scrf_final.device)],
+                    [scrf, torch.zeros(scrf_shape).to(scrf.device)],
                     dim=1,
                 )
-            elif scrf_final.shape[1] > self.maxK:
-                style_content_residual_features[i] = scrf_final[:, :self.maxK, ...]
+            elif KK > self.max_k:
+                style_content_residual_features[i] = scrf[:, :self.max_k, ...]
 
         # print("style_style_feature", style_style_feature.shape)
         # print("style_content_residual_features[-1]", style_content_residual_features[-1].shape)
@@ -109,7 +125,7 @@ class StyleReconstructor(nn.Module):
 if __name__ == "__main__":
     # print number of parameters
 
-    model = StyleReconstructor()
+    model = StyleReconstructor(k_shot=256, max_k=256)
 
     for name, param in model.named_parameters():
         if param.requires_grad:
