@@ -33,9 +33,7 @@ class SpatialTransformer(nn.Module):
         depth: int = 1,
         dropout: float = 0.0,
         num_groups: int = 32,
-        context_channels: Optional[int] = None,
         context_dim: Optional[int] = None,
-        valid_ratio: tuple[int, int]=(1, 1),
     ):
         super().__init__()
         self.n_heads = n_heads
@@ -49,14 +47,11 @@ class SpatialTransformer(nn.Module):
         self.transformer_blocks = nn.ModuleList(
             [
                 BasicTransformerBlock(
-                    query_channels=in_channels,
                     query_dim=query_dim,
                     n_heads=n_heads,
                     d_head=d_head,
                     dropout=dropout,
-                    context_channels=context_channels,
                     context_dim=context_dim,
-                    valid_ratio=valid_ratio,
                 )
                 for d in range(depth)
             ]
@@ -69,7 +64,7 @@ class SpatialTransformer(nn.Module):
             assert block is torch.Module
             block._set_attention_slice(slice_size)
 
-    def forward(self, hidden_states, context=None):
+    def forward(self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)):
         # note: if no context is given, cross-attention defaults to self-attention
         residual = hidden_states
         hidden_states = self.norm(hidden_states)
@@ -80,7 +75,7 @@ class SpatialTransformer(nn.Module):
         # hidden_states = hidden_states.permute(0, 2, 3, 1).reshape(batch, height * weight, inner_dim)  # here change the shape torch.Size([1, 4096, 128])
         # hidden_states = hidden_states.reshape(batch, channel, height * weight)
         for block in self.transformer_blocks:
-            hidden_states = block(hidden_states, context=context)
+            hidden_states = block(hidden_states, context=context, valid_ratio=valid_ratio)
         # hidden_states = hidden_states.reshape(batch, height, weight, inner_dim).permute(0, 3, 1, 2)
         # hidden_states = hidden_states.reshape(batch, channel, height, weight)
         # hidden_states = self.proj_out(hidden_states)
@@ -103,14 +98,11 @@ class BasicTransformerBlock(nn.Module):
 
     def __init__(
         self,
-        query_channels: int,
         query_dim: int,
         n_heads: int,
         d_head: int,
         dropout=0.0,
-        context_channels: Optional[int] = None,
         context_dim: Optional[int] = None,
-        valid_ratio: tuple[int, int]=(1, 1),
         gated_ff: bool = True,
         checkpoint: bool = True,
     ):
@@ -127,30 +119,31 @@ class BasicTransformerBlock(nn.Module):
         self.norm3 = nn.LayerNorm(query_dim)
         self.checkpoint = checkpoint
 
-        # Prepare attention mask 1
-        valid_query_channels = query_channels * valid_ratio[0] // valid_ratio[1]
-        attn_mask_1 = torch.ones(query_channels, query_channels, dtype=torch.int, requires_grad=False)
-        attn_mask_1[:valid_query_channels, :valid_query_channels] = 0
-        self.register_buffer("attn_mask_1", attn_mask_1)
-
-        # Prepare attention mask 2
-        attn_mask_2 = attn_mask_1
-        if context_channels is not None:
-            valid_context_channels = context_channels * valid_ratio[0] // valid_ratio[1]
-            attn_mask_2 = torch.ones(query_channels, context_channels, dtype=torch.int, requires_grad=False)
-            attn_mask_2[:valid_query_channels, :valid_context_channels] = 0
-        self.register_buffer("attn_mask_2", attn_mask_2)
-
     def _set_attention_slice(self, slice_size):
         self.attn1._slice_size = slice_size
         self.attn2._slice_size = slice_size
 
-    def forward(self, hidden_states, context=None):
+    def forward(self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)):
+        # Prepare attention mask 1
+        device=hidden_states.device
+        _, query_channels, _ = hidden_states.shape
+        valid_query_channels = query_channels * valid_ratio[0] // valid_ratio[1]
+        attn_mask_1 = torch.ones(query_channels, query_channels, dtype=torch.int, device=device, requires_grad=False)
+        attn_mask_1[:valid_query_channels, :valid_query_channels] = 0
+
+        # Prepare attention mask 2
+        attn_mask_2 = attn_mask_1
+        if context is not None:
+            _, context_channels, _ = context.shape
+            valid_context_channels = context_channels * valid_ratio[0] // valid_ratio[1]
+            attn_mask_2 = torch.ones(query_channels, context_channels, dtype=torch.int, device=device, requires_grad=False)
+            attn_mask_2[:valid_query_channels, :valid_context_channels] = 0
+
         hidden_states = hidden_states.contiguous() if hidden_states.device.type == "mps" else hidden_states
         # print("hidden_states (before attn1)", hidden_states.shape)
-        hidden_states = self.attn1(self.norm1(hidden_states), mask=self.attn_mask_1) + hidden_states
+        hidden_states = self.attn1(self.norm1(hidden_states), mask=attn_mask_1) + hidden_states
         # print("hidden_states (after attn1)", hidden_states.shape)
-        hidden_states = self.attn2(self.norm2(hidden_states), context=context, mask=self.attn_mask_2) + hidden_states
+        hidden_states = self.attn2(self.norm2(hidden_states), context=context, mask=attn_mask_2) + hidden_states
         # print("hidden_states (after attn2)", hidden_states.shape)
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
         # print("hidden_states (after ff)", hidden_states.shape)

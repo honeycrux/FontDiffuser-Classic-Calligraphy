@@ -16,7 +16,6 @@ class StyleReconstructor(nn.Module):
         d_embed = 128
         n_heads = 8
         d_head = d_embed // n_heads
-        valid_ratio = (k_shot, max_k)
 
         # Style encoding: (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C) ; d_query = C
         in_channels = max_k * 3 * 3 # K * H * W
@@ -24,8 +23,8 @@ class StyleReconstructor(nn.Module):
         # Content encoding (last layer): (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H)
         context_dim = 256 * 12 # C * H
 
-        st1_context_channels = max_k * 12 # K * W
-        st2_context_channels = 12 # K * W (from content content residual features, K=1)
+        # st1_context_channels = max_k * 12 # K * W
+        # st2_context_channels = 12 # K * W (from content content residual features, K=1)
         ca1_in_channels = max_k
         ca1_out_channels = 1
 
@@ -35,9 +34,7 @@ class StyleReconstructor(nn.Module):
             n_heads=n_heads,
             d_head=d_head,
             query_dim=query_dim,
-            context_channels=st1_context_channels,
             context_dim=context_dim,
-            valid_ratio=valid_ratio,
         )
 
         # Spacial transformer 2
@@ -46,9 +43,7 @@ class StyleReconstructor(nn.Module):
             n_heads=n_heads,
             d_head=d_head,
             query_dim=query_dim,
-            context_channels=st2_context_channels,
             context_dim=context_dim,
-            valid_ratio=valid_ratio,
         )
 
         # Channel attention 1
@@ -97,6 +92,8 @@ class StyleReconstructor(nn.Module):
         BBB, CCC, HHH, WWW = ccrf_final.shape
         ccrf_final = ccrf_final.permute(0, 3, 1, 2).reshape(BBB, WWW, CCC * HHH)
 
+        valid_ratio = (self.k_shot, self.max_k)
+
         # print("ssf", ssf.shape)
         # print("scrf_final", scrf_final.shape)
         # print("ccrf_final", ccrf_final.shape)
@@ -104,11 +101,13 @@ class StyleReconstructor(nn.Module):
         st1_output = self.st1(
             hidden_states=ssf,
             context=scrf_final,
+            valid_ratio=valid_ratio,
         )
         # print("st1_output", st1_output.shape)
         st2_output = self.st2(
             hidden_states=st1_output,
             context=ccrf_final,
+            valid_ratio=valid_ratio,
         )
         # print("st2_output", st2_output.shape)
         unpacked = st2_output.reshape(B, K, H * W, C) # shape it into 3D for channel attention (involving conv2d)
