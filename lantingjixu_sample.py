@@ -100,8 +100,8 @@ def main():
     no_existence_check = True
 
     for i, character in enumerate(characters):
-        if not no_existence_check and os.path.exists(f'{args.save_image_dir}/{character}.png'):
-            print(f'[{i+1}/{len(characters)}] {args.save_image_dir}/{character}.png already exists')
+        if not no_existence_check and os.path.exists(f'{save_image_dir}/{character}.png'):
+            print(f'[{i+1}/{len(characters)}] {save_image_dir}/{character}.png already exists')
         else:
             start_time = time.time()
             out_image = run_fontdiffuser(
@@ -115,13 +115,13 @@ def main():
                 seed=seed,
             )
             assert out_image is not None
-            out_image.save(f'{args.save_image_dir}/{character}.png')
+            out_image.save(f'{save_image_dir}/{character}.png')
             end_time = time.time()
 
             print(f"Finish the sampling process, costing time {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            print(f'[{i+1}/{len(characters)}] created {args.save_image_dir}/{character}.png')
+            print(f'[{i+1}/{len(characters)}] created {save_image_dir}/{character}.png')
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
