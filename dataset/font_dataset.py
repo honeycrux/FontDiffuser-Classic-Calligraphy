@@ -104,8 +104,6 @@ class FontDataset(Dataset):
                 if missing_set != empty_set:
                     raise Exception(f"{message_prefix} When using SCR, a balance dataset is required (all styles should have the same set of characters), but got missing characters {missing_set} in style {style}.")
 
-        # TODO: Warns if num_style_images < self.k_shot for any style
-
     def __getitem__(self, index):
         target_image_path = Path(self.target_images[index])
         target_image_name = target_image_path.stem
@@ -123,11 +121,7 @@ class FontDataset(Dataset):
         char_images_map.pop(content)
         candidate_style_images = [im for imlist in char_images_map.values() for im in imlist]
 
-        # Original implementation: Get 1 style image
-        # style_image_path = random.choice(candidate_style_images)
-        # style_image = Image.open(style_image_path).convert("RGB")
-        
-        # My implementation: Get K style images of the same style
+        # Get K style images of the same style
         num_style_images = len(candidate_style_images)
         # Choose style images
         style_image_paths = random.sample(candidate_style_images, min([self.k_shot, num_style_images]))

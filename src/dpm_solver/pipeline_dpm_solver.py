@@ -17,8 +17,8 @@ class FontDiffuserDPMPipeline():
         self, 
         model, 
         ddpm_train_scheduler,
-        version="V3",       #version of the model
-        model_type="noise",         #model type
+        version="V3",
+        model_type="noise",
         guidance_type="classifier-free",
         guidance_scale=7.5
     ):
@@ -64,21 +64,19 @@ class FontDiffuserDPMPipeline():
         model_kwargs["version"] = self.version
         model_kwargs["content_encoder_downsample_size"] = content_encoder_downsample_size
 
+        # 1. Define the conditional and unconditional conditions    
         cond = []
         cond.append(content_images)
         cond.append(style_images)
 
-        # 1. Define the conditional and unconditional conditions    
         uncond = []
-        uncond_content_images = torch.ones_like(content_images).to(self.model.device)       #create a tensor with the same shape as content_images
-        uncond_style_images=torch.stack([torch.ones_like(style_image) for style_image in style_images]) #create a tensor list with the same shape as style_images
-
-        # uncond_style_images = torch.ones_like(style_images).to(self.model.device)           #create a tensor with the same shape as style_images
+        uncond_content_images = torch.ones_like(content_images).to(self.model.device)
+        uncond_style_images=torch.stack([torch.ones_like(style_image) for style_image in style_images])
         uncond.append(uncond_content_images)
         uncond.append(uncond_style_images)
 
         # 2.Convert the discrete-time model to the continuous-time
-        model_fn = model_wrapper(           #model_wrapper is defined in dpm_solver_pytorch.py
+        model_fn = model_wrapper(
             model=self.model,
             noise_schedule=self.noise_schedule,
             model_type=self.model_type,
@@ -92,7 +90,7 @@ class FontDiffuserDPMPipeline():
         # 3. Define dpm-solver and sample by multistep DPM-Solver.
         # (We recommend multistep DPM-Solver for conditional sampling)
         # You can adjust the `steps` to balance the computation costs and the sample quality.
-        dpm_solver = DPM_Solver(        # do the _init_ function in DPM_Solver class
+        dpm_solver = DPM_Solver(
             model_fn=model_fn,
             noise_schedule=self.noise_schedule,
             algorithm_type=algorithm_type,

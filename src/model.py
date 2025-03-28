@@ -35,21 +35,6 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
     ):
         # Part I: Get style and content features from style and content images
 
-        ## Original implementation: one style image
-
-        ### get style feature from style image
-        # style_style_feature, _, _ = self.config["style_encoder"](style_images)
-
-        ### Get content feature from content image
-        # content_content_feature, content_content_residual_features = self.config["content_encoder"](content_images)
-        # content_content_residual_features.append(content_content_feature)
-
-        ### Get content feature from style image
-        # style_content_feature, style_content_residual_features = self.config["content_encoder"](style_images)
-        # style_content_residual_features.append(style_content_feature)
-
-        ## My Implementation: K style images
-
         ### Initialization
         style_batch = style_images
 
@@ -79,8 +64,6 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
 
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
-
-        ## Implementation 1: take average of the K style & content features from the style images
 
         ### Find the average style feature
         style_style_feature = torch.mean(style_style_feature_batch, dim=1)
@@ -139,21 +122,6 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
 
         # Part I: Get style and content features from style and content images
 
-        ## Original implementation: one style image
-
-        ### Get style feature from style image
-        # style_style_feature, _, style_style_residual_features = self.config["style_encoder"](style_images)
-
-        ### Get content feature from content image
-        # content_content_feature, content_content_residual_features = self.config["content_encoder"](content_images)
-        # content_content_residual_features.append(content_content_feature)
-
-        ### Get content feature from style image
-        # style_content_feature, style_content_residual_features = self.config["content_encoder"](style_images)
-        # style_content_residual_features.append(style_content_feature)
-
-        ## My Implementation: K style images
-
         ### Initialization
         K = len(style_images) // 2
         uncond_style_batch = style_images[0 : K]
@@ -175,8 +143,6 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
 
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
-
-        ## Implementation 1: take average of the K style & content features from the style images
 
         combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
         combined_style_content_residual_features = [
