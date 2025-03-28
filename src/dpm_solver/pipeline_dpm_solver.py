@@ -71,7 +71,7 @@ class FontDiffuserDPMPipeline():
 
         uncond = []
         uncond_content_images = torch.ones_like(content_images).to(self.model.device)
-        uncond_style_images=torch.stack([torch.ones_like(style_image) for style_image in style_images])
+        uncond_style_images = torch.ones_like(style_images).to(self.model.device)
         uncond.append(uncond_content_images)
         uncond.append(uncond_style_images)
 
