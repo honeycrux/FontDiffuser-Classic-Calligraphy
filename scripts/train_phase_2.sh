@@ -6,6 +6,7 @@ accelerate launch train.py \
     --report_to="tensorboard" \
     --training_phase=2 \
     --last_phase_ckpt_dir="phase_1_ckpt" \
+    --use_scr \
     --scr_ckpt_path="ckpt/scr_210000.pth" \
     --sc_coefficient=0.01 \
     --num_neg=16 \

@@ -1,5 +1,5 @@
 # This script is provided by the FYP24 project group.
-# The simple (now unused) implementation of performance evaluation for the Lantingjixu dataset.
+# This is the driver code for a simple (now unused) implementation of performance evaluation for the LantingjiXu dataset.
 # Given prepared original and target folders, the script will calculate the FID, SSIM, LPIPS, and L1 metrics.
 # For our current evaluation process, check lantingjixu_eval.py instead, which also generates a test profile and runs sampling.
 

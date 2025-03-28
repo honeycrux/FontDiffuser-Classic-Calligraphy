@@ -1,7 +1,6 @@
 # This script is provided by authors of FontDiffuser.
 # This script contains utility functions used in the FontDiffuser scripts.
 
-import os
 import cv2
 import yaml
 import copy
@@ -36,13 +35,13 @@ def save_image_with_content_style(save_dir, image, content_image_pil, content_im
         content_image = content_image_pil
     else:
         content_image = Image.open(content_image_path).convert("RGB").resize((resolution, resolution), Image.Resampling.BILINEAR)
-    # style_image = Image.open(style_image_path).convert("RGB").resize((resolution, resolution), Image.BILINEAR)
+    # style_image = Image.open(style_image_path).convert("RGB").resize((resolution, resolution), Image.Resampling.BILINEAR)
 
     new_image.paste(content_image, (0, 0))
     # new_image.paste(style_image, (resolution, 0))
     new_image.paste(image, (resolution*2, 0))
 
-    save_path = f"{save_dir}/out_with_cs.jpg"
+    save_path = f"{save_dir}/out_with_cs.png"
     new_image.save(save_path)
 
 
@@ -50,6 +49,7 @@ def x0_from_epsilon(scheduler, noise_pred, x_t, timesteps):
     """Return the x_0 from epsilon
     """
     batch_size = noise_pred.shape[0]
+    pred_original_sample = None
     for i in range(batch_size):
         noise_pred_i = noise_pred[i]
         noise_pred_i = noise_pred_i[None, :]
@@ -68,8 +68,10 @@ def x0_from_epsilon(scheduler, noise_pred, x_t, timesteps):
         if i == 0:
             pred_original_sample = pred_original_sample_i
         else:
+            assert pred_original_sample is not None
             pred_original_sample = torch.cat((pred_original_sample, pred_original_sample_i), dim=0)
 
+    assert pred_original_sample is not None
     return pred_original_sample
 
 
@@ -126,7 +128,7 @@ def ttf2im(font, char, fsize=128):
     
     return pil_im
 
-def get_transform_function(target_size: tuple[int, int]):
+def get_transform_function(target_size: tuple[int, int], normalize: bool):
     '''Get a transform function for transforming the input image to a tensor with the specified resolution.
     This pads the image to make it square and resizes it to the resolution specified.
     '''
@@ -142,13 +144,17 @@ def get_transform_function(target_size: tuple[int, int]):
             (max_dim - height + 1) // 2  # bottom
         )
 
-        image_transforms = transforms.Compose([
+        transforms_list = [
             transforms.Pad(padding=padding, fill=255, padding_mode='constant'),
             transforms.Resize(target_size, 
                             interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ])
+        ]
+
+        if normalize:
+            transforms_list.append(transforms.Normalize([0.5], [0.5]))
+
+        image_transforms = transforms.Compose(transforms_list)
 
         transformed_image = image_transforms(img)
         assert isinstance(transformed_image, torch.Tensor)

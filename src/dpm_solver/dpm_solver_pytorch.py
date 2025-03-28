@@ -1,5 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+
 import torch
-import torch.nn.functional as F
 import math
 
 
@@ -140,19 +141,24 @@ class NoiseScheduleVP:
         """
         Compute alpha_t of a given continuous-time label t in [0, T].
         """
-        return torch.exp(self.marginal_log_mean_coeff(t))
+        log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
+        return torch.exp(log_mean_coeff)
 
     def marginal_std(self, t):
         """
         Compute sigma_t of a given continuous-time label t in [0, T].
         """
-        return torch.sqrt(1. - torch.exp(2. * self.marginal_log_mean_coeff(t)))
+        log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
+        return torch.sqrt(1. - torch.exp(2. * log_mean_coeff))
 
     def marginal_lambda(self, t):
         """
         Compute lambda_t = log(alpha_t) - log(sigma_t) of a given continuous-time label t in [0, T].
         """
         log_mean_coeff = self.marginal_log_mean_coeff(t)
+        assert isinstance(log_mean_coeff, torch.Tensor)
         log_std = 0.5 * torch.log(1. - torch.exp(2. * log_mean_coeff))
         return log_mean_coeff - log_std
 
@@ -276,7 +282,7 @@ def model_wrapper(
         A noise prediction model that accepts the noised data and the continuous time as the inputs.
     """
 
-    def get_model_input_time(t_continuous):     #define the function to get the model input time
+    def get_model_input_time(t_continuous):
         """
         Convert the continuous-time `t_continuous` (in [epsilon, T]) to the model input time.
         For discrete-time DPMs, we convert `t_continuous` in [1 / N, 1] to `t_input` in [0, 1000 * (N - 1) / N].
@@ -287,13 +293,12 @@ def model_wrapper(
         else:
             return t_continuous
 
-    def noise_pred_fn(x, t_continuous, cond=None):      #define the noise prediction function
+    def noise_pred_fn(x, t_continuous, cond=None):
         t_input = get_model_input_time(t_continuous)
         if cond is None:
             output = model(x, t_input, **model_kwargs)
         else:
-            #todo: change the model to accept multiple style images in cond
-            output = model(x, t_input, cond, **model_kwargs)      #call the forward function of the model  
+            output = model(x, t_input, cond, **model_kwargs)
         if model_type == "noise":
             return output
         elif model_type == "x_start":
@@ -305,6 +310,7 @@ def model_wrapper(
         elif model_type == "score":
             sigma_t = noise_schedule.marginal_std(t_continuous)
             return -sigma_t * output
+        raise ValueError("Unknown model type: {}".format(model_type))
 
     def cond_grad_fn(x, t_input):
         """
@@ -312,6 +318,7 @@ def model_wrapper(
         """
         with torch.enable_grad():
             x_in = x.detach().requires_grad_(True)
+            assert classifier_fn is not None
             log_prob = classifier_fn(x_in, t_input, condition, **classifier_kwargs)
             return torch.autograd.grad(log_prob.sum(), x_in)[0]
 
@@ -335,6 +342,7 @@ def model_wrapper(
                 x_in = torch.cat([x] * 2)
                 t_in = torch.cat([t_continuous] * 2)
                 c_in = []
+                assert condition is not None
                 c_in.append(torch.cat([unconditional_condition[0], condition[0]], dim=0))
                 c_in.append(torch.cat([unconditional_condition[1], condition[1]], dim=0))
                 noise_uncond, noise = noise_pred_fn(x_in, t_in, cond=c_in).chunk(2)
@@ -343,6 +351,7 @@ def model_wrapper(
                 x_in = torch.cat([x] * 3)
                 t_in = torch.cat([t_continuous] * 3)
                 c_in = []
+                assert condition is not None
                 c_in.append(torch.cat([unconditional_condition[0], unconditional_condition[0], condition[0]], dim=0))
                 c_in.append(torch.cat([unconditional_condition[1], condition[1], unconditional_condition[1]], dim=0))
                 noise_uncond, noise_cond_style, noise_cond_content = noise_pred_fn(x_in, t_in, cond=c_in).chunk(3)
@@ -353,6 +362,7 @@ def model_wrapper(
             else:
                 x_in = torch.cat([x] * 2)
                 t_in = torch.cat([t_continuous] * 2)
+                assert condition is not None
                 c_in = torch.cat([unconditional_condition, condition])
                 noise_uncond, noise = noise_pred_fn(x_in, t_in, cond=c_in).chunk(2)
                 return noise_uncond + guidance_scale * (noise - noise_uncond)
@@ -649,6 +659,7 @@ class DPM_Solver:
         sigma_s, sigma_s1, sigma_t = ns.marginal_std(s), ns.marginal_std(s1), ns.marginal_std(t)
         alpha_s1, alpha_t = torch.exp(log_alpha_s1), torch.exp(log_alpha_t)
 
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_11 = torch.expm1(-r1 * h)
             phi_1 = torch.expm1(-h)
@@ -695,6 +706,7 @@ class DPM_Solver:
                     - (sigma_t * phi_1) * model_s
                     - (1. / r1) * (sigma_t * (phi_1 / h - 1.)) * (model_s1 - model_s)
                 )
+        assert x_t is not None
         if return_intermediate:
             return x_t, {'model_s': model_s, 'model_s1': model_s1}
         else:
@@ -737,6 +749,7 @@ class DPM_Solver:
         sigma_s, sigma_s1, sigma_s2, sigma_t = ns.marginal_std(s), ns.marginal_std(s1), ns.marginal_std(s2), ns.marginal_std(t)
         alpha_s1, alpha_s2, alpha_t = torch.exp(log_alpha_s1), torch.exp(log_alpha_s2), torch.exp(log_alpha_t)
 
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_11 = torch.expm1(-r1 * h)
             phi_12 = torch.expm1(-r2 * h)
@@ -816,6 +829,7 @@ class DPM_Solver:
                     - (sigma_t * phi_3) * D2
                 )
 
+        assert x_t is not None
         if return_intermediate:
             return x_t, {'model_s': model_s, 'model_s1': model_s1, 'model_s2': model_s2}
         else:
@@ -849,6 +863,7 @@ class DPM_Solver:
         h = lambda_t - lambda_prev_0
         r0 = h_0 / h
         D1_0 = (1. / r0) * (model_prev_0 - model_prev_1)
+        x_t = None
         if self.algorithm_type == "dpmsolver++":
             phi_1 = torch.expm1(-h)
             if solver_type == 'dpmsolver':
@@ -877,6 +892,7 @@ class DPM_Solver:
                     - (sigma_t * phi_1) * model_prev_0
                     - (sigma_t * (phi_1 / h - 1.)) * D1_0
                 )
+        assert x_t is not None
         return x_t
 
     def multistep_dpm_solver_third_update(self, x, model_prev_list, t_prev_list, t, solver_type='dpmsolver'):
@@ -951,8 +967,11 @@ class DPM_Solver:
         if order == 1:
             return self.dpm_solver_first_update(x, s, t, return_intermediate=return_intermediate)
         elif order == 2:
+            assert r1 is not None
             return self.singlestep_dpm_solver_second_update(x, s, t, return_intermediate=return_intermediate, solver_type=solver_type, r1=r1)
         elif order == 3:
+            assert r1 is not None
+            assert r2 is not None
             return self.singlestep_dpm_solver_third_update(x, s, t, return_intermediate=return_intermediate, solver_type=solver_type, r1=r1, r2=r2)
         else:
             raise ValueError("Solver order must be 1 or 2 or 3, got {}".format(order))
@@ -1024,6 +1043,7 @@ class DPM_Solver:
             t = ns.inverse_lambda(lambda_s + h)
             x_lower, lower_noise_kwargs = lower_update(x, s, t)
             x_higher = higher_update(x, s, t, **lower_noise_kwargs)
+            assert isinstance(x, torch.Tensor)
             delta = torch.max(torch.ones_like(x).to(x) * atol, rtol * torch.max(torch.abs(x_lower), torch.abs(x_prev)))
             norm_fn = lambda v: torch.sqrt(torch.square(v.reshape((v.shape[0], -1))).mean(dim=-1, keepdim=True))
             E = norm_fn((x_higher - x_lower) / delta).max()
@@ -1184,21 +1204,21 @@ class DPM_Solver:
             x_end: A pytorch tensor. The approximated solution at time `t_end`.
 
         """
-        t_0 = 1. / self.noise_schedule.total_N if t_end is None else t_end      # t_0 is the ending time
-        t_T = self.noise_schedule.T if t_start is None else t_start             # t_T is the starting time
-        # Check the time range
+        t_0 = 1. / self.noise_schedule.total_N if t_end is None else t_end
+        t_T = self.noise_schedule.T if t_start is None else t_start
         assert t_0 > 0 and t_T > 0, "Time range needs to be greater than 0. For discrete-time DPMs, it needs to be in [1 / N, 1], where N is the length of betas array"
-        if return_intermediate:             # We do not support return_intermediate for adaptive solver
+        if return_intermediate:
             assert method in ['multistep', 'singlestep', 'singlestep_fixed'], "Cannot use adaptive solver when saving intermediate values"
-        if self.correcting_xt_fn is not None:       # We do not support correcting_xt_fn for adaptive solver
+        if self.correcting_xt_fn is not None:
             assert method in ['multistep', 'singlestep', 'singlestep_fixed'], "Cannot use adaptive solver when correcting_xt_fn is not None"
-        device = x.device           # Get the device
-        intermediates = []          # The intermediate values
-        with torch.no_grad():       # We do not need to compute the gradients
-            if method == 'adaptive':            # Use adaptive solver
-                x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)           # Use adaptive solver
-            elif method == 'multistep':         # Use multistep solver
-                assert steps >= order           # The total steps should be greater than the order
+        device = x.device
+        intermediates = []
+        step = None
+        with torch.no_grad():
+            if method == 'adaptive':
+                x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)
+            elif method == 'multistep':
+                assert steps >= order
                 timesteps = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=steps, device=device)
                 assert timesteps.shape[0] - 1 == steps
                 # Init the initial values.
@@ -1241,12 +1261,16 @@ class DPM_Solver:
                     if step < steps:
                         model_prev_list[-1] = self.model_fn(x, t)
             elif method in ['singlestep', 'singlestep_fixed']:
+                orders = None
+                timesteps_outer = None
                 if method == 'singlestep':
                     timesteps_outer, orders = self.get_orders_and_timesteps_for_singlestep_solver(steps=steps, order=order, skip_type=skip_type, t_T=t_T, t_0=t_0, device=device)
                 elif method == 'singlestep_fixed':
                     K = steps // order
                     orders = [order,] * K
                     timesteps_outer = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=K, device=device)
+                assert orders is not None
+                assert timesteps_outer is not None
                 for step, order in enumerate(orders):
                     s, t = timesteps_outer[step], timesteps_outer[step + 1]
                     timesteps_inner = self.get_time_steps(skip_type=skip_type, t_T=s.item(), t_0=t.item(), N=order, device=device)
@@ -1265,6 +1289,7 @@ class DPM_Solver:
                 t = torch.ones((1,)).to(device) * t_0
                 x = self.denoise_to_zero_fn(x, t)
                 if self.correcting_xt_fn is not None:
+                    assert isinstance(step, int)
                     x = self.correcting_xt_fn(x, t, step + 1)
                 if return_intermediate:
                     intermediates.append(x)

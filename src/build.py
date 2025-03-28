@@ -1,11 +1,13 @@
 # This script is provided by authors of FontDiffuser.
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
-from src import (ContentEncoder, 
-                 StyleEncoder, 
-                 UNet,
-                 SCR,
-                 KFeatureExtractor)
+from src import (
+    ContentEncoder, 
+    StyleEncoder, 
+    UNet,
+    SCR,
+    KFeatureExtractor,
+)
 
 
 def build_unet(args):
@@ -15,14 +17,14 @@ def build_unet(args):
         out_channels=3,
         flip_sin_to_cos=True,
         freq_shift=0,
-        down_block_types=('DownBlock2D', 
+        down_block_types=['DownBlock2D', 
                           'MCADownBlock2D',
                           'MCADownBlock2D', 
-                          'DownBlock2D'),
-        up_block_types=('UpBlock2D', 
+                          'DownBlock2D'],
+        up_block_types=['UpBlock2D', 
                         'StyleRSIUpBlock2D',
                         'StyleRSIUpBlock2D', 
-                        'UpBlock2D'),
+                        'UpBlock2D'],
         block_out_channels=args.unet_channels, 
         layers_per_block=2,
         downsample_padding=1,
