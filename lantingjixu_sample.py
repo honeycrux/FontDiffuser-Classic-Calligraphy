@@ -1,7 +1,7 @@
 # This script is provided by the FYP24 project group.
 # This is the driver code for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
 # The ttf path, save path, text-to-generate path, and style image path can be configured in the main function.
-# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (lantingjixu_data/lantingjixu.txt) as the text-to-generate file.
+# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (data_lantingjixu/lantingjixu.txt) as the text-to-generate file.
 
 import random
 from typing import Optional
@@ -80,7 +80,7 @@ def main():
     ckpt_dir = 'ckpt/'
     ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
     save_image_dir = 'outputs/style_reconst'
-    style_image_path = 'lantingjixu_data/by_id'
+    style_image_path = 'data_lantingjixu/train/TargetImage/lan'
     seed = 0
 
     # load characters to generate

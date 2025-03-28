@@ -37,21 +37,6 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
     ):
         # Part I: Get style and content features from style and content images
 
-        ## Original implementation: one style image
-
-        ### get style feature from style image
-        # style_style_feature, _, _ = self.config["style_encoder"](style_images)
-
-        ### Get content feature from content image
-        # content_content_feature, content_content_residual_features = self.config["content_encoder"](content_images)
-        # content_content_residual_features.append(content_content_feature)
-
-        ### Get content feature from style image
-        # style_content_feature, style_content_residual_features = self.config["content_encoder"](style_images)
-        # style_content_residual_features.append(style_content_feature)
-
-        ## My Implementation: K style images
-
         ### Initialization
         style_batch = style_images
 
@@ -82,23 +67,6 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
 
-        ## Implementation 1: take average of the K style & content features from the style images
-
-        # ### Find the average style feature
-        # style_style_feature = torch.mean(style_style_feature_batch, dim=1)
-
-        # ### Find the average content residual features
-        # style_content_residual_features = []
-        # for fs_idx in range(len(style_content_residual_features_batch)):
-        #     style_content_residual_features.append(torch.mean(style_content_residual_features_batch[fs_idx], dim=1))
-
-        ## Implementation 2: take learned feature of the K style & content features from the style images
-        # style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
-        #     style_features=style_style_feature_batch,
-        #     content_features=style_content_residual_features_batch
-        # )
-
-        ## Implementation 3: use multi-style extractor on style feature, take average on content features
         style_style_feature = self.config["style_reconstructor"](
             style_style_feature=style_style_feature_batch,
             style_content_residual_features=style_content_residual_features_batch,
@@ -157,45 +125,6 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
 
         # Part I: Get style and content features from style and content images
 
-        ## Original implementation: one style image
-        ### Get style feature from style image
-        # style_style_feature, _, style_style_residual_features = self.config["style_encoder"](style_images)
-
-        ### Get content feature from content image
-        # content_content_feature, content_content_residual_features = self.config["content_encoder"](content_images)
-        # content_content_residual_features.append(content_content_feature)
-
-        ### Get content feature from style image
-        # style_content_feature, style_content_residual_features = self.config["content_encoder"](style_images)
-        # style_content_residual_features.append(style_content_feature)
-
-        ## Implementation 1: take average of the K style & content features from the style images
-
-        ### Initialization
-        # style_image_list = style_images
-        # K = len(style_images) // 2
-        # uncond_style_list = style_images[0 : K]
-        # cond_style_list = style_images[K :]
-
-        ### Get style feature from style image *list*
-        # style_style_feature_list=[]
-        # for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
-        #     style_style_feature, _, style_style_residual_features = self.style_encoder(torch.stack([uncond_style, cond_style]))
-        #     style_style_feature_list.append(style_style_feature)
-
-        ### Get content feature from content image
-        # content_content_feture, content_content_residual_features = self.content_encoder(content_images)
-        # content_content_residual_features.append(content_content_feture)
-
-        ### Get content feature from style image *list*
-        # style_content_residual_features_list=[]
-        # for uncond_style, cond_style in zip(uncond_style_list, cond_style_list):
-        #     style_content_feature, style_content_residual_features = self.content_encoder(torch.stack([uncond_style, cond_style]))
-        #     style_content_residual_features.append(style_content_feature)
-        #     style_content_residual_features_list.append(style_content_residual_features)
-
-        ## Implementation 2: take learned feature of the K style & content features from the style images
-        
         ### Initialization
         K = len(style_images) // 2
         uncond_style_batch = style_images[0 : K]
@@ -218,29 +147,6 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
 
-        ## Implementation 1: take average of the K style & content features from the style images
-        ### Find the average style feature
-        # style_style_feature = torch.mean(torch.stack(style_style_feature_list), dim=0)
-        ### Find the average content residual features
-        # style_content_residual_features[i][j]: i = index of the style image, j = index of residual feature (fs) of its content encoding
-        # average_features = []
-        # for i in range(len(style_content_residual_features_list[0])):
-        #     fsi = [fs[i] for fs in style_content_residual_features_list]
-        #     average_features.append(torch.mean(torch.stack(fsi), dim=0))
-        # style_content_residual_features = average_features
-
-        ## Implementation 2: take learned feature of the K style & content features from the style images
-        # combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
-        # combined_style_content_residual_features = [
-        #     torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])
-        #     for i in range(len(uncond_style_content_residual_features))
-        # ]
-        # style_style_feature, style_content_residual_features = self.config.k_feature_extractor(
-        #     style_features=combined_style_style_feature,
-        #     content_features=combined_style_content_residual_features
-        # )
-
-        ## Implementation 3: use multi-style extractor on style feature, take average on content features
         combined_style_style_feature = torch.stack([uncond_style_style_feature, cond_style_style_feature])
         combined_style_content_residual_features = [
             torch.stack([uncond_style_content_residual_features[i], cond_style_content_residual_features[i]])

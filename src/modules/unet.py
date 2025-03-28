@@ -175,25 +175,29 @@ class UNet(ModelMixin, ConfigMixin):
         self.conv_out = nn.Conv2d(block_out_channels[0], out_channels, 3, padding=1)
 
     def set_attention_slice(self, slice_size):
-        if slice_size is not None and self.config.attention_head_dim % slice_size != 0:
+        if slice_size is not None and self.config["attention_head_dim"] % slice_size != 0:
             raise ValueError(
                 f"Make sure slice_size {slice_size} is a divisor of "
-                f"the number of heads used in cross_attention {self.config.attention_head_dim}"
+                f"the number of heads used in cross_attention {self.config['attention_head_dim']}"
             )
-        if slice_size is not None and slice_size > self.config.attention_head_dim:
+        if slice_size is not None and slice_size > self.config["attention_head_dim"]:
             raise ValueError(
                 f"Chunk_size {slice_size} has to be smaller or equal to "
-                f"the number of heads used in cross_attention {self.config.attention_head_dim}"
+                f"the number of heads used in cross_attention {self.config['attention_head_dim']}"
             )
 
         for block in self.down_blocks:
             if hasattr(block, "attentions") and block.attentions is not None:
+                assert block.set_attention_slice is torch.Module
                 block.set_attention_slice(slice_size)
 
+        assert self.mid_block is not None
+        assert self.mid_block.set_attention_slice is torch.Module
         self.mid_block.set_attention_slice(slice_size)
 
         for block in self.up_blocks:
             if hasattr(block, "attentions") and block.attentions is not None:
+                assert block.set_attention_slice is torch.Module
                 block.set_attention_slice(slice_size)
 
     def _set_gradient_checkpointing(self, module, value=False):
@@ -227,10 +231,13 @@ class UNet(ModelMixin, ConfigMixin):
         if not torch.is_tensor(timesteps):
             # TODO: this requires sync between CPU and GPU. So try to pass timesteps as tensors if you can
             timesteps = torch.tensor([timesteps], dtype=torch.long, device=sample.device)
-        elif torch.is_tensor(timesteps) and len(timesteps.shape) == 0:
-            timesteps = timesteps[None].to(sample.device)
+        elif torch.is_tensor(timesteps):
+            assert isinstance(timesteps, torch.Tensor)
+            if len(timesteps.shape) == 0:
+                timesteps = timesteps[None].to(sample.device)
 
         # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
+        assert isinstance(timesteps, torch.Tensor)
         timesteps = timesteps.expand(sample.shape[0])
 
         t_emb = self.time_proj(timesteps)
