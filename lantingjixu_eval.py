@@ -164,7 +164,7 @@ def main():
     use_few_shot = False
 
     # Dataset location
-    dataset_dir = 'lantingjixu_data/by_char'
+    dataset_dir = 'data_lantingjixu/train/TargetImage/lan'
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
