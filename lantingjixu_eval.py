@@ -92,22 +92,20 @@ def generate_single_test(num_style_image: int, dataset_files: list[Path]):
             available_style_choices.remove(style)
 
         styles = [dataset_files[i] for i in chosen_styles]
-        seed = random.randint(0, 10000)
 
         test_info[file_idx] = {
             'character': dataset_files[file_idx].name,
             'style': [file.name for file in styles],
-            'seed': seed,
         }
 
     return test_info
 
-def create_test_profile(profile_dir: str, num_test_rounds: int, num_style_image: int, dataset_files: list[Path]):
+def create_test_profile(profile_dir: str, num_test_round: int, num_style_image: int, dataset_files: list[Path]):
     # A profile is a collection of tests.
 
     os.makedirs(profile_dir, exist_ok=True)
 
-    for test_idx in range(num_test_rounds):
+    for test_idx in range(num_test_round):
         seed = random.randint(0, 10000)
         test_info = generate_single_test(num_style_image=num_style_image, dataset_files=dataset_files)
         test_configuration = {
@@ -118,7 +116,7 @@ def create_test_profile(profile_dir: str, num_test_rounds: int, num_style_image:
         with open(f'{profile_dir}/test_{test_idx}.yaml', 'w', encoding="utf-8") as yaml_file:
             yaml.dump(test_configuration, yaml_file, default_flow_style=False, allow_unicode=True)
 
-    print(f"[Eval] Test profile created at {profile_dir} ({num_test_rounds} tests)")
+    print(f"[Eval] Test profile created at {profile_dir} ({num_test_round} tests)")
 
 def load_test_profile(profile_dir: str):
     # Load a profile from a directory.
@@ -166,12 +164,12 @@ def main():
     use_few_shot = True
 
     # Dataset location
-    dataset_dir = 'lantingjixu_data/by_char'
+    dataset_dir = 'data_lantingjixu/train/TargetImage/lan'
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
     test_profile_dir = "outputs/test-profile-2025-02-01"
-    num_test_rounds = 10
+    num_test_round = 10
     num_style_image = 5
 
     # If the profile already exists, set this to True.
@@ -197,7 +195,7 @@ def main():
         print(f"[Eval] No test profile found. Creating a new test profile")
         create_test_profile(
             profile_dir=test_profile_dir,
-            num_test_rounds=num_test_rounds,
+            num_test_round=num_test_round,
             num_style_image=num_style_image,
             dataset_files=dataset_files,
         )
