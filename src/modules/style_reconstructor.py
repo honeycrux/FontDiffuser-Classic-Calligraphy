@@ -1,3 +1,5 @@
+# This script is provided by the FYP24 project group.
+
 import torch
 import torch.nn as nn
 from .attention_for_reconstructor import SpatialTransformer, ChannelAttnBlock

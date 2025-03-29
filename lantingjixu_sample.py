@@ -79,7 +79,7 @@ def main():
 
     ckpt_dir = 'ckpt/'
     ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
-    save_image_dir = 'outputs/style_reconst'
+    save_image_dir = 'outputs/style_rec'
     style_image_path = 'data_lantingjixu/train/TargetImage/lan'
     seed = 0
 

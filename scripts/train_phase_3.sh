@@ -17,7 +17,7 @@ accelerate launch train.py \
     --use_validation \
     --validation_factor=10 \
     --validation_batch_size=6 \
-    --validation_interval=1000 \
+    --validation_interval=10 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
     --style_rec_coefficient=0.1 \
