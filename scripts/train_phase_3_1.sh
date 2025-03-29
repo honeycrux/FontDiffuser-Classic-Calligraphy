@@ -1,0 +1,26 @@
+accelerate launch train_style_reconst.py \
+    --seed=123 \
+    --experience_name="FontDiffuser_training_phase_3_1" \
+    --data_root="data" \
+    --output_dir="outputs/FontDiffuser" \
+    --report_to="tensorboard" \
+    --training_phase=3 \
+    --last_phase_ckpt_dir="ckpt" \
+    --resolution=96 \
+    --style_image_size=96 \
+    --content_image_size=96 \
+    --style_start_channel=64 \
+    --train_batch_size=4 \
+    --use_validation \
+    --validation_factor=10 \
+    --validation_batch_size=6 \
+    --validation_interval=1000 \
+    --max_train_steps=30000 \
+    --ckpt_interval=1000 \
+    --gradient_accumulation_steps=1 \
+    --log_interval=50 \
+    --learning_rate=1e-5 \
+    --lr_scheduler="constant" \
+    --lr_warmup_steps=1000 \
+    --mixed_precision="no"
+    
