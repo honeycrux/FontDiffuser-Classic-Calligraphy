@@ -20,10 +20,11 @@ class StyleReconstructor(nn.Module):
         d_head = d_embed // n_heads
 
         # Style encoding: (B, K=MaxK, C=1024, H=3, W=3) -> (B, K * H * W, C) ; d_query = C
-        in_channels = max_k * 3 * 3 # K * H * W
-        query_dim = 1024 # C
+        style_encoding_channels = max_k * 3 * 3 # K * H * W
+        style_encoding_dim = 1024 # C
         # Content encoding (last layer): (B, K=MaxK, C=256, H=12, W=12) -> (B, K * W, C * H)
-        context_dim = 256 * 12 # C * H
+        content_encoding_channels = max_k * 12 # K * W
+        content_encoding_dim = 256 * 12 # C * H
 
         # st1_context_channels = max_k * 12 # K * W
         # st2_context_channels = 12 # K * W (from content content residual features, K=1)
@@ -32,20 +33,20 @@ class StyleReconstructor(nn.Module):
 
         # Spacial transformer 1
         self.st1 = SpatialTransformer(
-            in_channels=in_channels,
+            in_channels=content_encoding_channels,
             n_heads=n_heads,
             d_head=d_head,
-            query_dim=query_dim,
-            context_dim=context_dim,
+            query_dim=content_encoding_dim,
+            context_dim=content_encoding_dim,
         )
 
         # Spacial transformer 2
         self.st2 = SpatialTransformer(
-            in_channels=in_channels,
+            in_channels=style_encoding_channels,
             n_heads=n_heads,
             d_head=d_head,
-            query_dim=query_dim,
-            context_dim=context_dim,
+            query_dim=style_encoding_dim,
+            context_dim=content_encoding_dim,
         )
 
         # Channel attention 1
@@ -84,10 +85,12 @@ class StyleReconstructor(nn.Module):
         # print("content_content_residual_features[-1]", content_content_residual_features[-1].shape)
 
         B, K, C, H, W = style_style_feature.shape
+        assert self.max_k == K
         ssf = style_style_feature.permute(0, 1, 3, 4, 2).reshape(B, K * H * W, C)
 
         scrf_final = style_content_residual_features[-1]
         BB, KK, CC, HH, WW = scrf_final.shape
+        assert self.max_k == KK
         scrf_final = scrf_final.permute(0, 1, 4, 2, 3).reshape(BB, KK * WW, CC * HH)
 
         ccrf_final = content_content_residual_features[-1]
@@ -101,14 +104,17 @@ class StyleReconstructor(nn.Module):
         # print("ccrf_final", ccrf_final.shape)
 
         st1_output = self.st1(
-            hidden_states=ssf,
-            context=scrf_final,
+            hidden_states=scrf_final,
+            context=ccrf_final,
             valid_ratio=valid_ratio,
         )
         # print("st1_output", st1_output.shape)
+        ccrf_final_repeated = ccrf_final.repeat(1, self.max_k, 1)
+        # print("ccrf_final_repeated", ccrf_final_repeated.shape)
+        st2_context = st1_output + ccrf_final_repeated
         st2_output = self.st2(
-            hidden_states=st1_output,
-            context=ccrf_final,
+            hidden_states=ssf,
+            context=st2_context,
             valid_ratio=valid_ratio,
         )
         # print("st2_output", st2_output.shape)
