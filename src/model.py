@@ -39,6 +39,8 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
 
         ### Initialization
         style_batch = style_images
+        K = style_batch.shape[1]
+        random_style_choice = torch.randint(1, K+1, ())
 
         ### Get style feature from style image *list*
         # style_batch are in the shape of (N, K, C, H, W)
@@ -72,7 +74,7 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
             style_content_residual_features=style_content_residual_features_batch,
             content_content_residual_features=content_content_residual_features,
         )
-        style_content_residual_features = [torch.mean(fs, dim=1) for fs in style_content_residual_features_batch]
+        style_content_residual_features = [fs[:, random_style_choice, ...] for fs in style_content_residual_features_batch]
 
         # Part III: Do the rest and run the UNet
 
@@ -129,6 +131,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         K = len(style_images) // 2
         uncond_style_batch = style_images[0 : K]
         cond_style_batch = style_images[K :]
+        random_style_choice = torch.randint(1, K+1, ())
 
         ### Get style feature from style image *list*
         uncond_style_style_feature, _, _ = self.config["style_encoder"](uncond_style_batch)
@@ -157,7 +160,7 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             style_content_residual_features=combined_style_content_residual_features,
             content_content_residual_features=content_content_residual_features,
         )
-        style_content_residual_features = [torch.mean(fs, dim=1) for fs in combined_style_content_residual_features]
+        style_content_residual_features = [fs[:, random_style_choice, ...] for fs in combined_style_content_residual_features]
 
         # Part III: Do the rest and run the UNet
 
