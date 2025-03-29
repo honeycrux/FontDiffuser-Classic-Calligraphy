@@ -232,7 +232,12 @@ def main():
         style_images = samples["style_image"]
         target_images = samples["target_image"]
         nonorm_target_images = samples["nonorm_target_image"]
-    
+
+        # Varying number of styles during training: Pick only L <= K styles
+        _, K, _, _, _ = style_images.shape
+        L = torch.randint(1, K + 1, ())
+        style_images = style_images[:, :L, ...] # shape: (B, L, C, H, W)
+
         # Sample noise that we'll add to the samples
         noise = torch.randn_like(target_images)
         bsz = target_images.shape[0]

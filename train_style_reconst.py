@@ -196,6 +196,11 @@ def main():
         style_images = samples["style_image"]
         target_images = samples["target_image"]
 
+        # Varying number of styles during training: Pick only L <= K styles
+        _, K, _, _, _ = style_images.shape
+        L = torch.randint(1, K + 1, ())
+        style_images = style_images[:, :L, ...] # shape: (B, L, C, H, W)
+
         # Simulate the preparation process in FontDiffuserModel
 
         # Part I: Get style and content features from style and content images
