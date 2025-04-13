@@ -14,9 +14,9 @@ def load_text(file_path: str):
         characters = list(text)
         return characters
 
-def convert_to_grid(image_files: list[str], batch_size: int):
+def convert_to_grid(image_files: list[str], line_size: int):
     # Split the image files into rows
-    return [image_files[i:i + batch_size] for i in range(0, len(image_files), batch_size)]
+    return [image_files[i:i + line_size] for i in range(0, len(image_files), line_size)]
 
 # Function to create a grid of images
 def display_images_in_grid(image_paths: list[list[str]], save_location: str):
@@ -54,15 +54,32 @@ def main():
 
     save_path = 'outputs/lantingjixu_grid.png' # Set the location to save the grid
 
-    text_data_path = 'data_lantingjixu/lantingjixu_used.txt'
+    line_size = 13 # Set the number of characters on each vertical line
 
-    image_files: list[str] = []
-    characters = load_text(text_data_path)
-    for character in characters:
-        image_files.append(os.path.join(image_folder, f'{character}.png'))
+    require_title = True # Whether to include the title
 
-    title_word_count = 4
-    image_files_grid = [image_files[:title_word_count]] + convert_to_grid(image_files[title_word_count:], 13)
+    title_data_path = 'data_lantingjixu/lantingjixu_title.txt' # Set the path to the title
+    text_data_path = 'data_lantingjixu/lantingjixu_used.txt' # Set the path to the text
+
+    text_characters = load_text(text_data_path)
+    text_image_files: list[str] = []
+    for character in text_characters:
+        text_image_files.append(os.path.join(image_folder, f'{character}.png'))
+
+    text_image_files_grid = convert_to_grid(text_image_files, line_size)
+
+    image_files_grid = text_image_files_grid
+
+    if require_title:
+        title_characters = load_text(title_data_path)
+        title_image_files: list[str] = []
+        for character in title_characters:
+            title_image_files.append(os.path.join(image_folder, f'{character}.png'))
+
+        title_image_files_grid = convert_to_grid(title_image_files, line_size)
+        empty_line = []
+
+        image_files_grid = title_image_files_grid + [empty_line] + text_image_files_grid
 
     display_images_in_grid(image_files_grid, save_path)
 
