@@ -54,7 +54,7 @@ def main():
 
     save_path = 'outputs/lantingjixu_grid.png' # Set the location to save the grid
 
-    text_data_path = 'data_lantingjixu/lantingjixu.txt'
+    text_data_path = 'data_lantingjixu/lantingjixu_used.txt'
 
     image_files: list[str] = []
     characters = load_text(text_data_path)
