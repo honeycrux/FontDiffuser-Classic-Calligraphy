@@ -293,12 +293,16 @@ def main():
 
         return loss
 
-    def get_submodel(model, submodule_name):
-        # If the model is wrapped with DDP, we need to access the submodule with model.module
+    def get_model(model):
+        # If the model is wrapped with DDP, we need to access the model with model.module
         if hasattr(model, "module"):
-            return getattr(model.module.config, submodule_name)
-        # If the model is not wrapped with DDP, we can access the submodule directly
-        return getattr(model.config, submodule_name)
+            return model.module
+        # If the model is not wrapped with DDP, we can access the model directly
+        return model
+
+    def get_submodel(model, submodule_name):
+        unwrapped = get_model(model)
+        return getattr(unwrapped.config, submodule_name)
 
     # Training loop
     for epoch in range(num_train_epochs):
@@ -382,7 +386,7 @@ def main():
                 torch.save(get_submodel(model, "style_encoder").state_dict(), f"{save_dir}/style_encoder.pth")
                 torch.save(get_submodel(model, "content_encoder").state_dict(), f"{save_dir}/content_encoder.pth")
                 torch.save({
-                    "model": model.state_dict(),
+                    "model": get_model(model).state_dict(),
                     "optimizer": optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),
                     "global_step": global_step,
