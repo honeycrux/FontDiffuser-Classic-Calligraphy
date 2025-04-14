@@ -1,10 +1,11 @@
 # This script is provided by the FYP24 project group.
-# This script is the whole evaluation process for the Lantingjixu dataset.
+# This is the driver code to run whole evaluation process on the LantingjiXu dataset.
 # It generates a test profile and runs sampling, then calculates the FID, SSIM, LPIPS, and L1 metrics.
 
 import random
 import os
 import time
+from typing import Any, Optional
 import yaml
 from pathlib import Path
 
@@ -12,30 +13,56 @@ from PIL import Image
 import torch
 import torchvision.transforms as TF
 
-from sample import (arg_parse, 
-                    sampling,
-                    load_fontdiffuser_pipeline)
+from sample import (
+    arg_parse, 
+    sampling,
+    load_fontdiffuser_pipeline,
+)
 from src.metrics.font_metrics import FontMetrics
 
-def run_fontdiffuser_demo(args,
-                    pipe,
-                    content_image, 
-                    character, 
-                    style_images,
-                    sampling_step,
-                    guidance_scale,
-                    batch_size,
-                    seed,
-                    use_few_shot):
+def load_essential_args(
+        args,
+        ckpt_dir: str,
+        guidance_scale: float = 7.5,
+    ):
+    # essential args are the arguments that are required to run load_fontdiffuser_pipeline
+    # which includes arguments required to build the model and its components
+
+    args.guidance_type = 'classifier-free'
+
+    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+
+    args.ckpt_dir = ckpt_dir
+    args.guidance_scale = guidance_scale
+
+    return args
+
+def run_fontdiffuser_demo_mode(
+        args,
+        pipe,
+        content_image: Optional[Image.Image],
+        character: Optional[str],
+        style_images: list[Image.Image],
+        ttf_path: str,
+        use_few_shot: bool,
+        sampling_step: int = 20,
+        batch_size: int = 1,
+        seed: Optional[int] = None,
+    ):
+    args.method = 'multistep'
+    args.algorithm_type = 'dpmsolver++'
+
     args.demo = True
+
     args.character_input = False if content_image is not None else True
     args.content_character = character
     args.sampling_step = sampling_step
-    args.guidance_scale = guidance_scale
+    args.ttf_path = ttf_path
     args.batch_size = batch_size
+
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
 
-    sampling_args = dict(
+    sampling_args = dict[str, Any](
         args=args,
         pipe=pipe,
         content_image=content_image,
@@ -65,22 +92,20 @@ def generate_single_test(num_style_image: int, dataset_files: list[Path]):
             available_style_choices.remove(style)
 
         styles = [dataset_files[i] for i in chosen_styles]
-        seed = random.randint(0, 10000)
 
         test_info[file_idx] = {
             'character': dataset_files[file_idx].name,
             'style': [file.name for file in styles],
-            'seed': seed,
         }
 
     return test_info
 
-def create_test_profile(profile_dir: str, num_test_rounds: int, num_style_image: int, dataset_files: list[Path]):
+def create_test_profile(profile_dir: str, num_test_round: int, num_style_image: int, dataset_files: list[Path]):
     # A profile is a collection of tests.
 
     os.makedirs(profile_dir, exist_ok=True)
 
-    for test_idx in range(num_test_rounds):
+    for test_idx in range(num_test_round):
         seed = random.randint(0, 10000)
         test_info = generate_single_test(num_style_image=num_style_image, dataset_files=dataset_files)
         test_configuration = {
@@ -91,7 +116,7 @@ def create_test_profile(profile_dir: str, num_test_rounds: int, num_style_image:
         with open(f'{profile_dir}/test_{test_idx}.yaml', 'w', encoding="utf-8") as yaml_file:
             yaml.dump(test_configuration, yaml_file, default_flow_style=False, allow_unicode=True)
 
-    print(f"[Eval] Test profile created at {profile_dir} ({num_test_rounds} tests)")
+    print(f"[Eval] Test profile created at {profile_dir} ({num_test_round} tests)")
 
 def load_test_profile(profile_dir: str):
     # Load a profile from a directory.
@@ -126,16 +151,17 @@ def save_results(result_info: dict, output_dir: str):
     with open(f'{output_dir}/eval_results.yaml', 'w', encoding="utf-8") as yaml_file:
         yaml.dump(result_info, yaml_file, default_flow_style=False, allow_unicode=True)
 
+def parse_target_image_name(target_image_name: str):
+    # Input Format: style+content[+optional-suffix]
+    target_components = target_image_name.split('+')
+    style = target_components[0]
+    content = target_components[1]
+    return style, content
+
 def main():
     args = arg_parse()
-    args.ckpt_dir = 'ckpt/'
-    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
-
-    args.method = 'multistep'
-    args.guidance_type = 'classifier-free'
-    args.algorithm_type = 'dpmsolver++'
-
-    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+    ckpt_dir = 'ckpt/'
+    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
     ### Evaluation configuration ###
 
@@ -145,12 +171,12 @@ def main():
     use_few_shot = True
 
     # Dataset location
-    dataset_dir = 'lantingjixu_data/by_char'
+    dataset_dir = 'data_lantingjixu/train/TargetImage/lan'
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
     test_profile_dir = "outputs/test-profile-2025-02-01"
-    num_test_rounds = 10
+    num_test_round = 10
     num_style_image = 5
 
     # If the profile already exists, set this to True.
@@ -158,7 +184,7 @@ def main():
     expect_existing_profile = True
 
     # Results location
-    results_output_dir = 'outputs/eval_few_shot'
+    results_output_dir = 'outputs/eval_conv_few_shot'
 
     ### Part 1: Load/Generate the test profile ###
 
@@ -176,7 +202,7 @@ def main():
         print(f"[Eval] No test profile found. Creating a new test profile")
         create_test_profile(
             profile_dir=test_profile_dir,
-            num_test_rounds=num_test_rounds,
+            num_test_round=num_test_round,
             num_style_image=num_style_image,
             dataset_files=dataset_files,
         )
@@ -192,6 +218,10 @@ def main():
     print("[Eval] Evaluation begins")
     print()
 
+    load_essential_args(
+        args=args,
+        ckpt_dir=ckpt_dir,
+    )
     pipe = load_fontdiffuser_pipeline(args=args)
     toTensor = TF.ToTensor()
 
@@ -230,18 +260,18 @@ def main():
             character_image = Image.open(character_file).convert('RGB')
             style_images = [Image.open(f).convert('RGB') for f in style_files]
 
-            character = character_file.stem
+            _, character = parse_target_image_name(character_file.stem)
 
-            out_image = run_fontdiffuser_demo(args=args,
-                                        pipe=pipe,
-                                        content_image=None,
-                                        character=character,
-                                        style_images=style_images,
-                                        sampling_step=20,
-                                        guidance_scale=7.5,
-                                        batch_size=1,
-                                        seed=seed,
-                                        use_few_shot=use_few_shot)
+            out_image = run_fontdiffuser_demo_mode(
+                args=args,
+                pipe=pipe,
+                content_image=None,
+                character=character,
+                style_images=style_images,
+                ttf_path=ttf_path,
+                use_few_shot=use_few_shot,
+                seed=seed,
+            )
 
             assert out_image is not None
 

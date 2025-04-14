@@ -1,148 +1,170 @@
 from pathlib import Path
 import random
 from PIL import Image
+from collections import defaultdict
 import hashlib
 
 import torch
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 
-def get_nonorm_transform(resolution):
-    nonorm_transform =  transforms.Compose(
-            [transforms.Resize((resolution, resolution), 
-                               interpolation=transforms.InterpolationMode.BILINEAR), 
-             transforms.ToTensor()])
-    return nonorm_transform
+from utils import get_transform_function
 
-def is_for_validation(filename):
+image_suffix = "png"
+
+def parse_target_image_name(target_image_name: str):
+    # Input Format: style+content[+optional-suffix]
+    target_components = target_image_name.split('+')
+    style = target_components[0]
+    content = target_components[1]
+    return style, content
+
+def is_for_validation(image_char: str, validation_factor: int = 10):
     # Using the filename of a data, determine whether it is for validation
-    # Overall, 10% of the data should be determined as validation data
+    # Overall, (1 / validation_factor) of the data is determined as validation data
 
-    hash_value = int(hashlib.md5(filename.encode()).hexdigest(), 16)
-    is_validation = hash_value % 10 == 0
+    hash_value = int(hashlib.md5(image_char.encode()).hexdigest(), 16)
+    is_validation = hash_value % validation_factor == 0
     return is_validation
 
 class FontDataset(Dataset):
     """The dataset of font generation  
     """
-    def __init__(self, args, phase, scr, need_validation_split, is_validation_mode, validate_set_size_limit=None, transforms=None):
+    def __init__(
+            self,
+            args,
+            phase: str,
+            transforms,
+            is_validation_mode: bool,
+        ):
         super().__init__()
         self.root = args.data_root
         self.phase = phase
-        self.validate_set_size_limit = validate_set_size_limit
-        self.need_validation_split = bool(need_validation_split)
-        self.is_validation_mode = bool(is_validation_mode)
-        self.scr = bool(scr)
+        self.use_scr = bool(args.use_scr)
+        self.use_validation = args.use_validation
+        self.validation_factor = args.validation_factor
+        self.is_validation_mode = is_validation_mode
         self.k_shot = args.k_shot
-        if self.scr:
+        if self.use_scr:
             self.num_neg = args.num_neg
-        if self.is_validation_mode and not self.need_validation_split:
+        if self.is_validation_mode and not self.use_validation:
             raise ValueError("User does not want to split validation set, but is in validation mode")
-
+        
         # Get Data path
         self.get_path()
         self.transforms = transforms
-        self.nonorm_transforms = get_nonorm_transform(args.resolution)
+        self.nonorm_transforms = get_transform_function(target_size=(args.resolution, args.resolution), normalize=False)
 
     def get_path(self):
-
-        self.target_images = []
-        # Images with related style
-        self.style_to_images = {}
+        # Find target image list style to images map
+        self.target_images: list[str] = []
+        self.content_to_images: dict[str, str] = {}
+        self.style_to_images: dict[str, defaultdict[str, list[str]]] = {}
+        content_image_dir = Path(self.root) / self.phase / "ContentImage"
         target_image_dir = Path(self.root) / self.phase / "TargetImage"
-        number_of_styles = len(list(target_image_dir.iterdir()))
-        # Limit the number of images per style so that the size of the whole validation set is at most validate_set_size_limit
-        limit_per_style = (self.validate_set_size_limit // number_of_styles) if self.validate_set_size_limit is not None else None
+        message_prefix = f"In {'validation' if self.is_validation_mode else 'training'} set:"
         for style in target_image_dir.iterdir():
-            images_related_style = []
-            for idx, img in enumerate(style.iterdir()):
-                if self.is_validation_mode and limit_per_style is not None and idx >= limit_per_style:
-                    break
-                if self.need_validation_split and self.is_validation_mode != is_for_validation(img.stem):
+            if not style.is_dir():
+                continue
+            style_related_images = defaultdict[str, list[str]](list)
+            for img in style.iterdir():
+                image_style, image_char = parse_target_image_name(img.stem)
+                if self.use_validation and self.is_validation_mode != is_for_validation(image_char=image_char, validation_factor=self.validation_factor):
                     continue
                 img_path = img.as_posix()
+                if image_char not in self.content_to_images:
+                    content_path = content_image_dir / f"{image_char}.{image_suffix}"
+                    assert content_path.exists(), f"{message_prefix} Content image {image_char} required by style {image_style} not found in {content_path}"
+                    self.content_to_images[image_char] = content_path.as_posix()
+                assert style.stem == image_style, f"{message_prefix} Style mismatch: Expected {style.stem}, but got {image_style} in {img_path}"
+                assert image_suffix == img.suffix[1:], f"{message_prefix} Image suffix mismatch: Expected {image_suffix}, but got {img.suffix} in {img_path}"
                 self.target_images.append(img_path)
-                images_related_style.append(img_path)
-            self.style_to_images[style.name] = images_related_style
+                style_related_images[image_char].append(img_path)
+            self.style_to_images[style.stem] = style_related_images
+
+        # Check the number of style images available at every situation
+        required_style_images = self.k_shot
+        for style, char_images_map in self.style_to_images.items():
+            style_images_total = sum([len(imlist) for imlist in char_images_map.values()])
+            for char, images in char_images_map.items():
+                style_candidates_total = style_images_total - len(images)
+                assert style_candidates_total >= required_style_images, f"{message_prefix} When simulating training with style {style} and char {char}, the number of style images should be at least {required_style_images}, but got {style_candidates_total} style image candidates."
+
+        # SCR: Check the number of styles
+        num_styles = len(self.style_to_images)
+        if self.use_scr:
+            assert num_styles >= self.num_neg + 1, f"{message_prefix} To use SCR, the number of styles in TargetImage should be at least num_neg + 1, but got {num_styles} styles and {self.num_neg} num_neg."
+
+        # SCR: Check if dataset is balanced (all styles have the same set of characters)
+        if self.use_scr:
+            universe_char_set = set(self.content_to_images.keys())
+            empty_set = set()
+            for style, char_images_map in self.style_to_images.items():
+                style_char_set = set(char_images_map.keys())
+                missing_set = universe_char_set - style_char_set
+                if missing_set != empty_set:
+                    raise Exception(f"{message_prefix} When using SCR, a balance dataset is required (all styles should have the same set of characters), but got missing characters {missing_set} in style {style}.")
 
     def __getitem__(self, index):
-        target_image_path = self.target_images[index]
-        target_image_name = target_image_path.split('/')[-1]
-        style, content = target_image_name.split('.')[0].split('+')
+        target_image_path = Path(self.target_images[index])
+        target_image_name = target_image_path.stem
+
+        # Get target image components
+        style, content = parse_target_image_name(target_image_name)
         
         # Read content image
-        content_image_path = f"{self.root}/{self.phase}/ContentImage/{content}.png"
+        content_image_path = self.content_to_images[content]
         content_image = Image.open(content_image_path).convert('RGB')
-        if self.transforms is not None:
-            content_image = self.transforms[0](content_image)
+        content_image = self.transforms[0](content_image)
 
         # Random sample used for style image
-        images_related_style = self.style_to_images[style].copy()
-        images_related_style.remove(target_image_path)
+        char_images_map = self.style_to_images[style].copy()
+        char_images_map.pop(content)
+        candidate_style_images = [im for imlist in char_images_map.values() for im in imlist]
 
-        # Original implementation: Get 1 style image
-        # style_image_path = random.choice(images_related_style)
-        # style_image = Image.open(style_image_path).convert("RGB")
-        # if self.transforms is not None:
-        #     style_image = self.transforms[1](style_image)
-
-        # My implementation: Get K style images of the same style
-        choose_style_image_names = []
+        # Get K style images of the same style
+        num_style_images = len(candidate_style_images)
         # Choose style images
-        if len(images_related_style) < self.k_shot:
-            raise ValueError(f"k_shot is set to {self.k_shot}, but the number of style images ({len(images_related_style)}) is less than {self.k_shot}")
-        for i in range(self.k_shot):
-            style_image_path = random.choice(images_related_style)
-            choose_style_image_names.append(style_image_path)
-            images_related_style.remove(style_image_path)
+        style_image_paths = random.sample(candidate_style_images, min([self.k_shot, num_style_images]))
         # Load style images
-        for i, style_image_path in enumerate(choose_style_image_names):
-            style_image = Image.open(style_image_path).convert("RGB")
-            if self.transforms is not None:
-                style_image = self.transforms[1](style_image)
-            if i == 0:
-                style_images = style_image[None, :, :, :]
-            else:
-                style_images = torch.cat([style_images, style_image[None, :, :, :]], dim=0)
-        
+        style_images = [Image.open(style_image_path).convert("RGB") for style_image_path in style_image_paths]
+        style_images = [self.transforms[1](style_image) for style_image in style_images]
+        style_images = torch.stack(style_images, dim=0)
+
         # Read target image
         target_image = Image.open(target_image_path).convert("RGB")
         nonorm_target_image = self.nonorm_transforms(target_image)
-        if self.transforms is not None:
-            target_image = self.transforms[2](target_image)
+        target_image = self.transforms[2](target_image)
         
         sample = {
             "content_image": content_image,
-            "style_images": style_images,
+            "style_image": style_images,
             "target_image": target_image,
-            "target_image_path": target_image_path,
+            "target_image_path": target_image_path.as_posix(),
             "nonorm_target_image": nonorm_target_image}
         
-        if self.scr:
+        if self.use_scr:
             # Get neg image from the different style of the same content
             style_list = list(self.style_to_images.keys())
-            style_index = style_list.index(style)
-            style_list.pop(style_index)
-            choose_neg_names = []
-            for i in range(self.num_neg):
-                if len(style_list) < 1:
-                    # choose less than num_neg if there is not enough other styles
-                    break
-                choose_style = random.choice(style_list)
-                choose_index = style_list.index(choose_style)
-                style_list.pop(choose_index)
-                choose_neg_name = f"{self.root}/{self.phase}/TargetImage/{choose_style}/{choose_style}+{content}.png"
-                choose_neg_names.append(choose_neg_name)
+            style_list.remove(style)
+            chosen_neg_paths = []
+            chosen_styles = random.sample(style_list, self.num_neg)
+            chosen_neg_paths = [
+                random.choice(self.style_to_images[chosen_style][content])
+                for chosen_style in chosen_styles
+            ]
 
             # Load neg_images
-            for i, neg_name in enumerate(choose_neg_names):
-                neg_image = Image.open(neg_name).convert("RGB")
-                if self.transforms is not None:
-                    neg_image = self.transforms[2](neg_image)
+            neg_images = None
+            for i, neg_path in enumerate(chosen_neg_paths):
+                neg_image = Image.open(neg_path).convert("RGB")
+                neg_image = self.transforms[2](neg_image)
+                assert isinstance(neg_image, torch.Tensor)
                 if i == 0:
                     neg_images = neg_image[None, :, :, :]
                 else:
+                    assert neg_images is not None
                     neg_images = torch.cat([neg_images, neg_image[None, :, :, :]], dim=0)
+            assert neg_images is not None
             sample["neg_images"] = neg_images
 
         return sample

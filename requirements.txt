@@ -9,7 +9,7 @@ pyyaml
 pygame
 opencv-python
 info-nce-pytorch
-kornia
+kornia==0.7.3
 
 ### FYP24 Team ###
 

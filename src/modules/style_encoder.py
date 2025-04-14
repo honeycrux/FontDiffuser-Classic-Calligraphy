@@ -6,10 +6,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
+from torch.nn.utils.spectral_norm import spectral_norm
 
-from diffusers import ModelMixin
-from diffusers.configuration_utils import (ConfigMixin, 
-                                           register_to_config)
+from diffusers.models.modeling_utils import ModelMixin
+from diffusers.configuration_utils import (
+    ConfigMixin, 
+    register_to_config,
+)
 
 
 def proj(x, y):
@@ -51,7 +54,7 @@ class LinearBlock(nn.Module):
         use_bias = True
         self.fc = nn.Linear(in_dim, out_dim, bias=use_bias)
         if use_sn:
-            self.fc = nn.utils.spectral_norm(self.fc)
+            self.fc = spectral_norm(self.fc)
 
         # initialize normalization
         norm_dim = out_dim
@@ -207,6 +210,7 @@ class DBlock(nn.Module):
         else:
             h = x
         h = self.conv1(h)
+        assert self.activation is not None
         h = self.conv2(self.activation(h))
         if self.downsample:
             h = self.downsample(h)
@@ -239,6 +243,7 @@ class GBlock(nn.Module):
 
     
     def forward(self, x):
+        assert self.activation is not None
         h = self.activation(self.bn1(x))
         if self.upsample:
             h = self.upsample(h)
@@ -274,6 +279,7 @@ class GBlock2(nn.Module):
         self.skip_connection = skip_connection
 
     def forward(self, x):
+        assert self.activation is not None
         h = self.activation(x)
         if self.upsample:
             h = self.upsample(h)

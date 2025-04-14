@@ -1,44 +1,78 @@
 # This script is provided by authors of FontDiffuser.
-# This script is the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
+# This is the driver code for the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
 
+from typing import Optional
+import torch
 import functools
 import random
 import gradio as gr
-from sample import (arg_parse, 
-                    sampling,
-                    load_fontdiffuser_pipeline)
+from PIL import Image
+from sample import (
+    arg_parse, 
+    sampling,
+    load_fontdiffuser_pipeline,
+)
 
+def load_essential_args(
+        args,
+        ckpt_dir: str,
+        guidance_scale: float = 7.5,
+    ):
+    # essential args are the arguments that are required to run load_fontdiffuser_pipeline
+    # which includes arguments required to build the model and its components
 
-def run_fontdiffuser(args,
-                     pipe,
-                     source_image, 
-                     character, 
-                     reference_image,
-                     sampling_step,
-                     guidance_scale,
-                     batch_size):
+    args.guidance_type = 'classifier-free'
+
+    args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
+
+    args.ckpt_dir = ckpt_dir
+    args.guidance_scale = guidance_scale
+
+    return args
+
+def run_fontdiffuser_demo_mode(
+        args,
+        pipe,
+        ttf_path: str,
+        source_image: Optional[Image.Image],
+        character: str,
+        reference_image: Image.Image,
+        sampling_step: int = 20,
+        batch_size: int = 1,
+        seed: Optional[int] = None,
+    ):
+    args.method = 'multistep'
+    args.algorithm_type = 'dpmsolver++'
+
+    args.demo = True
+
+    args.ttf_path = ttf_path
     args.character_input = False if source_image is not None else True
     args.content_character = character
     args.sampling_step = sampling_step
-    args.guidance_scale = guidance_scale
     args.batch_size = batch_size
-    args.seed = random.randint(0, 10000)
+
+    args.seed = seed if type(seed) is int else random.randint(0, 10000)
+
     out_image = sampling(
         args=args,
         pipe=pipe,
         content_image=source_image,
-        style_images=reference_image)
+        style_images=reference_image,
+    )
     return out_image
 
 
 def main():
     args = arg_parse()
-    args.demo = True
-    args.ckpt_dir = 'ckpt'
-    # args.ttf_path = 'ttf/KaiXinSongA.ttf'
-    args.ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
+    ckpt_dir = 'ckpt'
+    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
 
     # load fontdiffuser pipeline
+    load_essential_args(
+        args=args,
+        ckpt_dir=ckpt_dir,
+    )
     pipe = load_fontdiffuser_pipeline(args=args)
 
     with gr.Blocks() as demo:
@@ -102,10 +136,10 @@ def main():
                 gr.Markdown("### In this mode, we provide both the source image and \
                             the reference image for you to try our demo!")
                 gr.Examples(
-                    examples=[['figures/source_imgs/source_灨.jpg', 'figures/ref_imgs/ref_籍.jpg'], 
-                            ['figures/source_imgs/source_鑻.jpg', 'figures/ref_imgs/ref_鹰.jpg'],
-                            ['figures/source_imgs/source_鑫.jpg', 'figures/ref_imgs/ref_壤.jpg'],
-                            ['figures/source_imgs/source_釅.jpg', 'figures/ref_imgs/ref_雕.jpg']],
+                    examples=[['figures/source_imgs/source_灨.png', 'figures/ref_imgs/ref_籍.png'], 
+                            ['figures/source_imgs/source_鑻.png', 'figures/ref_imgs/ref_鹰.png'],
+                            ['figures/source_imgs/source_鑫.png', 'figures/ref_imgs/ref_壤.png'],
+                            ['figures/source_imgs/source_釅.png', 'figures/ref_imgs/ref_雕.png']],
                     inputs=[source_image, reference_image]
                 )
             with gr.Column(scale=1):
@@ -113,10 +147,10 @@ def main():
                 gr.Markdown("### In this mode, we provide the content character and the reference image \
                             for you to try our demo!")
                 gr.Examples(
-                    examples=[['龍', 'figures/ref_imgs/ref_鷢.jpg'],
-                            ['轉', 'figures/ref_imgs/ref_鲸.jpg'],
-                            ['懭', 'figures/ref_imgs/ref_籍_1.jpg'],
-                            ['識', 'figures/ref_imgs/ref_鞣.jpg']],
+                    examples=[['龍', 'figures/ref_imgs/ref_鷢.png'],
+                            ['轉', 'figures/ref_imgs/ref_鲸.png'],
+                            ['懭', 'figures/ref_imgs/ref_籍_1.png'],
+                            ['識', 'figures/ref_imgs/ref_鞣.png']],
                     inputs=[character, reference_image]
                 )
             with gr.Column(scale=1):
@@ -125,32 +159,31 @@ def main():
                             you can upload your own source image or you choose the character above \
                             to try our demo!")
                 gr.Examples(
-                    examples=['figures/ref_imgs/ref_闡.jpg', 
-                            'figures/ref_imgs/ref_雕.jpg',
-                            'figures/ref_imgs/ref_豄.jpg',
-                            'figures/ref_imgs/ref_馨.jpg',
-                            'figures/ref_imgs/ref_鲸.jpg',
-                            'figures/ref_imgs/ref_檀.jpg',
-                            'figures/ref_imgs/ref_鞣.jpg',
-                            'figures/ref_imgs/ref_穗.jpg',
-                            'figures/ref_imgs/ref_欟.jpg',
-                            'figures/ref_imgs/ref_籍_1.jpg',
-                            'figures/ref_imgs/ref_鷢.jpg',
-                            'figures/ref_imgs/ref_媚.jpg',
-                            'figures/ref_imgs/ref_籍.jpg',
-                            'figures/ref_imgs/ref_壤.jpg',
-                            'figures/ref_imgs/ref_蜓.jpg',
-                            'figures/ref_imgs/ref_鹰.jpg'],
+                    examples=['figures/ref_imgs/ref_闡.png', 
+                            'figures/ref_imgs/ref_雕.png',
+                            'figures/ref_imgs/ref_豄.png',
+                            'figures/ref_imgs/ref_馨.png',
+                            'figures/ref_imgs/ref_鲸.png',
+                            'figures/ref_imgs/ref_檀.png',
+                            'figures/ref_imgs/ref_鞣.png',
+                            'figures/ref_imgs/ref_穗.png',
+                            'figures/ref_imgs/ref_欟.png',
+                            'figures/ref_imgs/ref_籍_1.png',
+                            'figures/ref_imgs/ref_鷢.png',
+                            'figures/ref_imgs/ref_媚.png',
+                            'figures/ref_imgs/ref_籍.png',
+                            'figures/ref_imgs/ref_壤.png',
+                            'figures/ref_imgs/ref_蜓.png',
+                            'figures/ref_imgs/ref_鹰.png'],
                     examples_per_page=20,
                     inputs=reference_image
                 )
         FontDiffuser.click(
-            fn=functools.partial(run_fontdiffuser, args, pipe),
+            fn=functools.partial(run_fontdiffuser_demo_mode, args, pipe, ttf_path),
             inputs=[source_image, 
                     character, 
                     reference_image,
                     sampling_step,
-                    guidance_scale,
                     batch_size],
             outputs=fontdiffuser_output_image)
     demo.launch(debug=True)

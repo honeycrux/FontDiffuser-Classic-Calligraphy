@@ -60,6 +60,8 @@ class SCR(nn.Module):
 
         # Get negative image style embedding
         _, num_neg, _, _, _ = neg_imgs.shape
+        neg_style_embeddings = None
+        neg_style_embeddings_mid = None
         for i in range(num_neg):
             neg_imgs_once = neg_imgs[:, i, :, :]
             neg_style_embeddings_once = self.StyleFeatProjector(
@@ -71,16 +73,21 @@ class SCR(nn.Module):
                 if j == 0:
                     neg_style_embeddings_mid = layer_out[None, :, :]
                 else:
+                    assert neg_style_embeddings_mid is not None
                     neg_style_embeddings_mid = torch.cat(
                         [neg_style_embeddings_mid, layer_out[None, :, :]],
                         dim=0)
             if i == 0:
+                assert neg_style_embeddings_mid is not None
                 neg_style_embeddings = neg_style_embeddings_mid[:, :, None, :]
             else:
+                assert neg_style_embeddings is not None
+                assert neg_style_embeddings_mid is not None
                 neg_style_embeddings = torch.cat(
                     [neg_style_embeddings, neg_style_embeddings_mid[:, :, None, :]],
                     dim=2)
         
+        assert neg_style_embeddings is not None
         return sample_style_embeddings, pos_style_embeddings, neg_style_embeddings
     
     def calculate_nce_loss(self, sample_s, pos_s, neg_s):

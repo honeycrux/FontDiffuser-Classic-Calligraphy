@@ -51,6 +51,7 @@ class SpatialTransformer(nn.Module):
 
     def _set_attention_slice(self, slice_size):
         for block in self.transformer_blocks:
+            assert block._set_attention_slice is torch.Module
             block._set_attention_slice(slice_size)
 
     def forward(self, hidden_states, context=None):
@@ -175,7 +176,7 @@ class CrossAttention(nn.Module):
     """
 
     def __init__(
-        self, query_dim: int, context_dim: Optional[int] = None, heads: int = 8, dim_head: int = 64, dropout: int = 0.0
+        self, query_dim: int, context_dim: Optional[int] = None, heads: int = 8, dim_head: int = 64, dropout: float = 0.0
     ):
         super().__init__()
         inner_dim = dim_head * heads

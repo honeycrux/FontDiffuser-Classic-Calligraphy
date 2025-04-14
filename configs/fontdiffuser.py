@@ -2,7 +2,6 @@
 # This script is the configuration file for command line arguments available in FontDiffuser.
 # Also note that additional arguments for sampling are added in sample.py::arg_parse().
 
-import os
 import argparse
 
 def get_parser():
@@ -34,13 +33,13 @@ def get_parser():
                         help="The channels of the fisrt layer output of content encoder.",)
     parser.add_argument("--style_start_channel", type=int, default=64, 
                         help="The channels of the fisrt layer output of content encoder.",)
-    parser.add_argument("--k_shot", type=int, default=5, help="The number of style images used.")
+    parser.add_argument("--k_shot", type=int, default=5, help="The maximum number of style images used.")
     
     # Training
-    # parser.add_argument("--phase_2", action="store_true", help="Training in phase 2 using SCR module.")
     parser.add_argument("--training_phase", type=int, help="The training phase number.")
-    parser.add_argument("--last_phase_ckpt_dir", type=str, default=None, help="The trained ckpt directory during phase 1.")
+    parser.add_argument("--last_phase_ckpt_dir", type=str, default=None, help="The trained ckpt directory during the last phase.")
     ## SCR
+    parser.add_argument("--use_scr", action="store_true", help="Whether to use the SCR.")
     parser.add_argument("--temperature", type=float, default=0.07)
     parser.add_argument("--mode", type=str, default="refinement")
     parser.add_argument("--scr_image_size", type=int, default=96)
@@ -63,7 +62,7 @@ def get_parser():
     ## step
     parser.add_argument("--max_train_steps", type=int, default=440000, 
                         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",)
-    parser.add_argument("--ckpt_interval", type=int,default=40000, help="The step begin to validate.")
+    parser.add_argument("--ckpt_interval", type=int,default=40000, help="The checkpoint saving interval when training.")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, 
                         help="Number of updates steps to accumulate before performing a backward/update pass.",)
     parser.add_argument("--log_interval", type=int, default=100, help="The log interval of training.")
@@ -91,6 +90,16 @@ def get_parser():
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], 
                         help="Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires \
                             PyTorch >= 1.10. and an Nvidia Ampere GPU.")
+    ## validation
+    parser.add_argument("--use_validation", action="store_true", help="Whether to run validation during training.")
+    parser.add_argument("--validation_factor", type=int, default=10, 
+                        help="The factor of validation data (1/factor of data is split for validation).")
+    parser.add_argument("--validation_batch_size", type=int, default=8, 
+                        help="Batch size (per device) for the validation dataloader.")
+    parser.add_argument("--validation_interval", type=int, default=100, help="The interval of validation.")
+    ## resume training
+    parser.add_argument("--resume_training", action="store_true", help="Whether to resume training.")
+    parser.add_argument("--resume_ckpt_dir", type=str, default=None, help="The directory of the ckpt to resume training.")
     
     # Sampling
     parser.add_argument("--algorithm_type", type=str, default="dpmsolver++", help="Algorithm for sampleing.")

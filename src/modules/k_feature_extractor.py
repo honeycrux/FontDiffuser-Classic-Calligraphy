@@ -1,3 +1,11 @@
+# This script is provided by the FYP24 project group.
+# This is the K-Feature Extractor unit.
+# Any implementation can be used by changing the unit_used in class KFeatureExtractor.
+# There are 3 implementations of the K-Feature Extractor unit:
+# 1. KFeatureExtractorUnit_Conv (default): A convolutional implementation.
+# 2. KFeatureExtractorUnit_FC: A fully connected implementation.
+# 3. KFeatureExtractorUnit_X1: A heavier-weight hybrid implementation that combines convolutional and fully connected layers.
+
 import torch
 import torch.nn as nn
 
@@ -117,12 +125,15 @@ class KFeatureExtractorUnit_X1(nn.Module):
 class KFeatureExtractor(nn.Module):
     def __init__(self, K):
         super(KFeatureExtractor, self).__init__()
-        self.style_feature_extractor = KFeatureExtractorUnit_X1(K=K, singleton_shape=style_feature_extractor_input_singleton)
-        self.content_feature_extractor1 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
-        self.content_feature_extractor2 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
-        self.content_feature_extractor3 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
-        self.content_feature_extractor4 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
-        self.content_feature_extractor5 = KFeatureExtractorUnit_X1(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
+
+        unit_used = KFeatureExtractorUnit_Conv
+
+        self.style_feature_extractor = unit_used(K=K, singleton_shape=style_feature_extractor_input_singleton)
+        self.content_feature_extractor1 = unit_used(K=K, singleton_shape=content_feature_extractor_1_input_singleton)
+        self.content_feature_extractor2 = unit_used(K=K, singleton_shape=content_feature_extractor_2_input_singleton)
+        self.content_feature_extractor3 = unit_used(K=K, singleton_shape=content_feature_extractor_3_input_singleton)
+        self.content_feature_extractor4 = unit_used(K=K, singleton_shape=content_feature_extractor_4_input_singleton)
+        self.content_feature_extractor5 = unit_used(K=K, singleton_shape=content_feature_extractor_5_input_singleton)
 
     def forward(self, style_features: torch.Tensor, content_features: list[torch.Tensor]):
         style_features = self.style_feature_extractor(style_features)
