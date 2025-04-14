@@ -151,6 +151,13 @@ def save_results(result_info: dict, output_dir: str):
     with open(f'{output_dir}/eval_results.yaml', 'w', encoding="utf-8") as yaml_file:
         yaml.dump(result_info, yaml_file, default_flow_style=False, allow_unicode=True)
 
+def parse_target_image_name(target_image_name: str):
+    # Input Format: style+content[+optional-suffix]
+    target_components = target_image_name.split('+')
+    style = target_components[0]
+    content = target_components[1]
+    return style, content
+
 def main():
     args = arg_parse()
     ckpt_dir = 'ckpt/'
@@ -253,7 +260,7 @@ def main():
             character_image = Image.open(character_file).convert('RGB')
             style_images = [Image.open(f).convert('RGB') for f in style_files]
 
-            character = character_file.stem
+            _, character = parse_target_image_name(character_file.stem)
 
             out_image = run_fontdiffuser_demo_mode(
                 args=args,
