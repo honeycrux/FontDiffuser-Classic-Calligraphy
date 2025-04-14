@@ -175,9 +175,9 @@ def main():
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
-    test_profile_dir = "outputs/test-profile-2025-02-01"
+    test_profile_dir = "outputs/test-profile-2025-04-15-256"
     num_test_round = 10
-    num_style_image = 5
+    num_style_image = 256
 
     # If the profile already exists, set this to True.
     # This prevents the evaluation process from regenerating the profile if you want reproducible results.

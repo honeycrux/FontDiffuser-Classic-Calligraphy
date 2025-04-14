@@ -250,6 +250,17 @@ def main():
 
         return loss
 
+    def get_model(model):
+        # If the model is wrapped with DDP, we need to access the model with model.module
+        if hasattr(model, "module"):
+            return model.module
+        # If the model is not wrapped with DDP, we can access the model directly
+        return model
+
+    def get_submodel(model, submodule_name):
+        unwrapped = get_model(model)
+        return getattr(unwrapped.config, submodule_name)
+
     # Training loop
     for epoch in range(num_train_epochs):
         # Accumulated train loss in a global step, which may include multiple gradient accumulation steps
@@ -328,9 +339,9 @@ def main():
             if is_checkpoint_step and is_on_main_process:
                 save_dir = f"{args.output_dir}/global_step_{global_step}"
                 os.makedirs(save_dir, exist_ok=True)
-                torch.save(model.state_dict(), f"{save_dir}/style_reconstructor.pth")
+                torch.save(get_model(model).state_dict(), f"{save_dir}/style_reconstructor.pth")
                 torch.save({
-                    "model": model.state_dict(),
+                    "model": get_model(model).state_dict(),
                     "optimizer": optimizer.state_dict(),
                     "lr_scheduler": lr_scheduler.state_dict(),
                     "global_step": global_step,

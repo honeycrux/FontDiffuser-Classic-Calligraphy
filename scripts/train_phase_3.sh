@@ -13,17 +13,17 @@ accelerate launch train.py \
     --channel_attn=True \
     --content_start_channel=64 \
     --style_start_channel=64 \
-    --train_batch_size=4 \
+    --train_batch_size=2 \
     --use_validation \
-    --validation_factor=10 \
-    --validation_batch_size=6 \
+    --validation_factor=1000 \
+    --validation_batch_size=3 \
     --validation_interval=10 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
     --style_rec_coefficient=0.1 \
-    --max_train_steps=30000 \
+    --max_train_steps=20000 \
     --ckpt_interval=1000 \
-    --gradient_accumulation_steps=1 \
+    --gradient_accumulation_steps=2 \
     --log_interval=50 \
     --learning_rate=1e-5 \
     --lr_scheduler="constant" \

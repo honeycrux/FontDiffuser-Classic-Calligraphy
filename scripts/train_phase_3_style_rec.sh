@@ -11,7 +11,7 @@ accelerate launch train_style_rec.py \
     --content_image_size=96 \
     --style_start_channel=64 \
     --train_batch_size=2 \
-    --max_train_steps=440000 \
+    --max_train_steps=20000 \
     --ckpt_interval=1000 \
     --gradient_accumulation_steps=2 \
     --log_interval=50 \
