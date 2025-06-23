@@ -2,24 +2,31 @@
 # This is the driver code for creating a grid of characters (top-to-bottom, right-to-left).
 # It is configured to use the LantingjiXu text and the images generated from the LantingjiXu text.
 # The LantingjiXu text must first be generated using lantingjixu_sample.py.
-# The image path, save path, and text data path can be configured in the main function.
+# The image folder, save path, line size, title data path, and text data path can be configured in the main function.
 
 import matplotlib.pyplot as plt
 import os
 from PIL import Image
+from collections import defaultdict
 
 def load_text(file_path: str):
     with open(file_path, 'r', encoding='utf-8') as text_file:
         text = text_file.read()
-        characters = list(text)
-        return characters
+        return text
 
-def convert_to_grid(image_files: list[str], line_size: int):
-    # Split the image files into rows
-    return [image_files[i:i + line_size] for i in range(0, len(image_files), line_size)]
+def get_file_names(characters: str):
+    word_count = defaultdict(lambda: 0)
+    file_names = []
+    for character in characters:
+        seq = word_count[character]
+        if seq == 0:
+            file_names.append(f"{character}")
+        else:
+            file_names.append(f"{character}+{seq}")
+        word_count[character] += 1
+    return file_names
 
-# Function to create a grid of images
-def display_images_in_grid(image_paths: list[list[str]], save_location: str):
+def render_image_grid(image_paths: list[list[str]], save_location: str):
     # Calculate the number of rows and cols needed
     cols = len(image_paths)
     rows = max([len(image_line) for image_line in image_paths])
@@ -49,10 +56,31 @@ def display_images_in_grid(image_paths: list[list[str]], save_location: str):
     # plt.show()
     plt.savefig(save_location)
 
+def convert_to_grid(image_files: list[str], line_size: int):
+    # Split the image files into rows
+    return [image_files[i:i + line_size] for i in range(0, len(image_files), line_size)]
+
+def create_image_file_grid(image_folder: str, line_size: int, text_data_path: str, title_data_path: str, require_title: bool):
+    title_text = load_text(title_data_path) if require_title else ""
+    text_text = load_text(text_data_path)
+
+    combined_text = title_text + text_text
+    file_names = get_file_names(combined_text)
+
+    image_files: list[str] = [os.path.join(image_folder, f'{file_name}.png') for file_name in file_names]
+
+    title_image_files = image_files[:len(title_text)]
+    text_image_files = image_files[len(title_text):]
+
+    title_image_file_grid = convert_to_grid(title_image_files, line_size)
+    text_image_file_grid = convert_to_grid(text_image_files, line_size)
+
+    return title_image_file_grid, text_image_file_grid
+
 def main():
     image_folder = 'outputs/'  # Set image folder path with the generated images
 
-    save_path = 'outputs/lantingjixu_grid.png' # Set the location to save the grid
+    save_path = 'outputs/grid.png' # Set the location to save the grid
 
     line_size = 13 # Set the number of characters on each vertical line
 
@@ -61,27 +89,22 @@ def main():
     title_data_path = 'data_lantingjixu/lantingjixu_title.txt' # Set the path to the title
     text_data_path = 'data_lantingjixu/lantingjixu_used.txt' # Set the path to the text
 
-    text_characters = load_text(text_data_path)
-    text_image_files: list[str] = []
-    for character in text_characters:
-        text_image_files.append(os.path.join(image_folder, f'{character}.png'))
+    title_image_file_grid, text_image_file_grid = create_image_file_grid(
+        image_folder=image_folder,
+        line_size=line_size,
+        text_data_path=text_data_path,
+        title_data_path=title_data_path,
+        require_title=require_title
+    )
 
-    text_image_files_grid = convert_to_grid(text_image_files, line_size)
-
-    image_files_grid = text_image_files_grid
+    final_image_file_grid = text_image_file_grid
 
     if require_title:
-        title_characters = load_text(title_data_path)
-        title_image_files: list[str] = []
-        for character in title_characters:
-            title_image_files.append(os.path.join(image_folder, f'{character}.png'))
-
-        title_image_files_grid = convert_to_grid(title_image_files, line_size)
         empty_line = []
 
-        image_files_grid = title_image_files_grid + [empty_line] + text_image_files_grid
+        final_image_file_grid = title_image_file_grid + [empty_line] + text_image_file_grid
 
-    display_images_in_grid(image_files_grid, save_path)
+    render_image_grid(final_image_file_grid, save_path)
 
 if __name__ == '__main__':
     main()
