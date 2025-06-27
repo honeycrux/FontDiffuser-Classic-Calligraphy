@@ -14,8 +14,10 @@ accelerate launch train.py \
     --content_start_channel=64 \
     --style_start_channel=64 \
     --train_batch_size=16 \
-    --validate_batch_size=128 \
-    --validate_interval=1000 \
+    --use_validation \
+    --validation_factor=10 \
+    --validation_batch_size=128 \
+    --validation_interval=1000 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
     --max_train_steps=30000 \

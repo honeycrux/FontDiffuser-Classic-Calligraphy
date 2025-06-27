@@ -189,9 +189,6 @@ def main():
             collate_fn=CollateFN(),
         )
 
-    # print(f"Train dataset size: {len(train_font_dataset)}")
-    # print(f"Validation dataset size: {len(validate_font_dataset)}")
-
     # Build optimizer and learning rate
     if args.scale_lr:
         args.learning_rate = (

@@ -111,21 +111,6 @@ def get_parser():
         default=4,
         help="Batch size (per device) for the training dataloader.",
     )
-    parser.add_argument(
-        "--validate_batch_size",
-        type=int,
-        default=8,
-        help="Batch size (per device) for the validation dataloader.",
-    )
-    parser.add_argument(
-        "--validate_set_size",
-        type=int,
-        required=False,
-        help="The maximum of validation images to use.",
-    )
-    parser.add_argument(
-        "--validate_interval", type=int, default=100, help="The interval of validation."
-    )
     ## loss coefficient
     parser.add_argument("--perceptual_coefficient", type=float, default=0.01)
     parser.add_argument("--offset_coefficient", type=float, default=0.5)
