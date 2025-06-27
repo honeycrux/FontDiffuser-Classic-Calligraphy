@@ -179,6 +179,7 @@ def image_process(
     return content_image, style_images, content_image_pil, style_images_pil
 
 
+
 def load_fontdiffuser_pipeline(args):
     # Load the model state_dict
     unet = build_unet(args=args)
@@ -271,7 +272,6 @@ def sampling(args, pipe, content_image=None, style_images=None):
         return images[0]
 
 
-# ControlNet
 def load_controlnet_pipeline(
     args,
     config_path="lllyasviel/sd-controlnet-canny",

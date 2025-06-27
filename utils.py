@@ -42,7 +42,11 @@ def save_image_with_content_style(
             .convert("RGB")
             .resize((resolution, resolution), Image.Resampling.BILINEAR)
         )
-    # style_image = Image.open(style_image_path).convert("RGB").resize((resolution, resolution), Image.Resampling.BILINEAR)
+    # style_image = (
+    #     Image.open(style_image_path)
+    #     .convert("RGB")
+    #     .resize((resolution, resolution), Image.Resampling.BILINEAR)
+    # )
 
     new_image.paste(content_image, (0, 0))
     # new_image.paste(style_image, (resolution, 0))
