@@ -8,9 +8,12 @@ from torcheval.metrics.metric import Metric
 
 TPerceptualSimilarity = TypeVar("TPerceptualSimilarity")
 
+
 class PerceptualSimilarity(Metric[torch.Tensor]):
 
-    def __init__(self: TPerceptualSimilarity, device: Optional[torch.device] = None) -> None:
+    def __init__(
+        self: TPerceptualSimilarity, device: Optional[torch.device] = None
+    ) -> None:
         super().__init__(device=device)
         self.lpips = LPIPS().to(device)
 
@@ -19,7 +22,9 @@ class PerceptualSimilarity(Metric[torch.Tensor]):
         self._add_state("sum_weights", torch.tensor(0.0, device=device))
 
     @torch.inference_mode()
-    def update(self: TPerceptualSimilarity, images_1: torch.Tensor, images_2: torch.Tensor) -> TPerceptualSimilarity:
+    def update(
+        self: TPerceptualSimilarity, images_1: torch.Tensor, images_2: torch.Tensor
+    ) -> TPerceptualSimilarity:
         """
         Update the metric with the new input and target.
 
@@ -57,7 +62,9 @@ class PerceptualSimilarity(Metric[torch.Tensor]):
         return raw_values.mean()
 
     @torch.inference_mode()
-    def merge_state(self: TPerceptualSimilarity, metrics: Iterable[TPerceptualSimilarity]) -> TPerceptualSimilarity:
+    def merge_state(
+        self: TPerceptualSimilarity, metrics: Iterable[TPerceptualSimilarity]
+    ) -> TPerceptualSimilarity:
         """
         Merge the state of another LPIPS instance into this instance.
 
