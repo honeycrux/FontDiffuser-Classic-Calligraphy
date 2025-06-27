@@ -140,7 +140,10 @@ class MeanAbsoluteError(Metric[torch.Tensor]):
         self: TMeanAbsoluteError, metrics: Iterable[TMeanAbsoluteError]
     ) -> TMeanAbsoluteError:
         for metric in metrics:
-            if self.sum_absolute_error.ndim == 0 and metric.sum_absolute_error.ndim == 1:
+            if (
+                self.sum_absolute_error.ndim == 0
+                and metric.sum_absolute_error.ndim == 1
+            ):
                 self.sum_absolute_error = metric.sum_absolute_error.to(self.device)
             else:
                 self.sum_absolute_error += metric.sum_absolute_error.to(self.device)

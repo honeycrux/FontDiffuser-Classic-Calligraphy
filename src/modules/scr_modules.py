@@ -24,11 +24,11 @@ class StyleExtractor(nn.Module):
         self.conv1x1_4 = nn.Conv2d(1024, 512, kernel_size=1, stride=1, bias=True)
         self.conv1x1_5 = nn.Conv2d(1024, 512, kernel_size=1, stride=1, bias=True)
         self.relu = nn.ReLU(True)
-        
+
     def encode_with_intermediate(self, input):
         results = [input]
         for i in range(6):
-            func = getattr(self, 'enc_{:d}'.format(i + 1))
+            func = getattr(self, "enc_{:d}".format(i + 1))
             results.append(func(results[-1]))
         return results[1:]
 
@@ -36,19 +36,21 @@ class StyleExtractor(nn.Module):
 
         feats = self.encode_with_intermediate(input)
         codes = []
-        for x in index.split(','):
+        for x in index.split(","):
             code = feats[int(x)].clone()
-            gap = torch.nn.functional.adaptive_avg_pool2d(code, (1,1))
-            gmp = torch.nn.functional.adaptive_max_pool2d(code, (1,1))
-            conv1x1 = getattr(self, 'conv1x1_{:d}'.format(int(x)))
+            gap = torch.nn.functional.adaptive_avg_pool2d(code, (1, 1))
+            gmp = torch.nn.functional.adaptive_max_pool2d(code, (1, 1))
+            conv1x1 = getattr(self, "conv1x1_{:d}".format(int(x)))
             code = torch.cat([gap, gmp], 1)
             code = self.relu(conv1x1(code))
             codes.append(code)
-        return codes 
+        return codes
 
 
 class Projector(nn.Module):
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super(Projector, self).__init__()
         self.projector0 = nn.Sequential(
             nn.Linear(64, 1024),
@@ -65,7 +67,7 @@ class Projector(nn.Module):
             nn.Linear(2048, 2048),
         )
         self.projector2 = nn.Sequential(
-            nn.Linear(256,1024),
+            nn.Linear(256, 1024),
             nn.ReLU(True),
             nn.Linear(1024, 2048),
             nn.ReLU(True),
@@ -97,8 +99,8 @@ class Projector(nn.Module):
 
         num = 0
         projections = []
-        for x in index.split(','):
-            projector = getattr(self, 'projector{:d}'.format(int(x)))        
+        for x in index.split(","):
+            projector = getattr(self, "projector{:d}".format(int(x)))
             code = input[num].view(input[num].size(0), -1)
             projection = projector(code).view(code.size(0), -1)
             projection = nn.functional.normalize(projection)
@@ -111,7 +113,7 @@ def make_layers(cfg, batch_norm=True):
     layers = []
     in_channels = 3
     for v in cfg:
-        if v == 'M':
+        if v == "M":
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
@@ -123,5 +125,35 @@ def make_layers(cfg, batch_norm=True):
     return nn.Sequential(*layers)
 
 
-vgg = make_layers([3, 64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 
-          512, 512, 512, 512, 'M', 512, 512, 'M', 512, 512, 'M'])
+vgg = make_layers(
+    [
+        3,
+        64,
+        64,
+        "M",
+        128,
+        128,
+        "M",
+        256,
+        256,
+        256,
+        256,
+        "M",
+        512,
+        512,
+        512,
+        512,
+        "M",
+        512,
+        512,
+        512,
+        512,
+        "M",
+        512,
+        512,
+        "M",
+        512,
+        512,
+        "M",
+    ]
+)

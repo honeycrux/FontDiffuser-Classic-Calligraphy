@@ -6,7 +6,7 @@
 import random
 from typing import Optional
 from sample import (
-    arg_parse, 
+    arg_parse,
     sampling,
     load_fontdiffuser_pipeline,
 )
@@ -15,10 +15,12 @@ import time
 import torch
 from collections import defaultdict
 
+
 def load_text(file_path: str):
-    with open(file_path, 'r', encoding='utf-8') as text_file:
+    with open(file_path, "r", encoding="utf-8") as text_file:
         text = text_file.read()
         return text
+
 
 def get_file_names(characters: str):
     word_count = defaultdict(lambda: 0)
@@ -32,15 +34,16 @@ def get_file_names(characters: str):
         word_count[character] += 1
     return file_names
 
+
 def load_essential_args(
-        args,
-        ckpt_dir: str,
-        guidance_scale: float = 7.5,
-    ):
+    args,
+    ckpt_dir: str,
+    guidance_scale: float = 7.5,
+):
     # essential args are the arguments that are required to run load_fontdiffuser_pipeline
     # which includes arguments required to build the model and its components
 
-    args.guidance_type = 'classifier-free'
+    args.guidance_type = "classifier-free"
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
@@ -49,20 +52,21 @@ def load_essential_args(
 
     return args
 
+
 def run_fontdiffuser(
-        args,
-        pipe,
-        content_image_path: Optional[str],
-        character: Optional[str],
-        style_image_path: str,
-        save_image_dir: str,
-        ttf_path: str,
-        sampling_step: int = 20,
-        batch_size: int = 1,
-        seed: Optional[int] = None,
-    ):
-    args.method = 'multistep'
-    args.algorithm_type = 'dpmsolver++'
+    args,
+    pipe,
+    content_image_path: Optional[str],
+    character: Optional[str],
+    style_image_path: str,
+    save_image_dir: str,
+    ttf_path: str,
+    sampling_step: int = 20,
+    batch_size: int = 1,
+    seed: Optional[int] = None,
+):
+    args.method = "multistep"
+    args.algorithm_type = "dpmsolver++"
 
     args.demo = False
     args.save_image = False
@@ -86,19 +90,22 @@ def run_fontdiffuser(
     )
     return out_image
 
+
 def main():
     args = arg_parse()
 
-    ckpt_dir = 'ckpt/'
-    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
-    save_image_dir = 'outputs/'
-    style_image_dir = 'data_lantingjixu/train/TargetImage/lan'
+    ckpt_dir = "ckpt/"
+    ttf_path = "ttf/SourceHanSerifTC-VF.ttf"
+    save_image_dir = "outputs/"
+    style_image_dir = "data_lantingjixu/train/TargetImage/lan"
     seed = None
 
-    require_title = True # Whether to include the title
+    require_title = True  # Whether to include the title
 
-    title_data_path = 'data_lantingjixu/lantingjixu_title.txt' # Set the path to the title
-    text_data_path = 'data_lantingjixu/lantingjixu_used.txt' # Set the path to the text
+    title_data_path = (
+        "data_lantingjixu/lantingjixu_title.txt"  # Set the path to the title
+    )
+    text_data_path = "data_lantingjixu/lantingjixu_used.txt"  # Set the path to the text
 
     title_text = load_text(title_data_path) if require_title else ""
     text_text = load_text(text_data_path)
@@ -121,8 +128,12 @@ def main():
     style_images = [f"{style_image_dir}/{img}" for img in os.listdir(style_image_dir)]
 
     for i, (character, file_name) in enumerate(zip(combined_text, file_names)):
-        if not no_existence_check and os.path.exists(f'{save_image_dir}/{character}.png'):
-            print(f'[{i+1}/{len(combined_text)}] {save_image_dir}/{character}.png already exists')
+        if not no_existence_check and os.path.exists(
+            f"{save_image_dir}/{character}.png"
+        ):
+            print(
+                f"[{i+1}/{len(combined_text)}] {save_image_dir}/{character}.png already exists"
+            )
         else:
             start_time = time.time()
 
@@ -140,17 +151,22 @@ def main():
                 seed=seed,
             )
             assert out_image is not None
-            out_image.save(f'{save_image_dir}/{file_name}.png')
+            out_image.save(f"{save_image_dir}/{file_name}.png")
             end_time = time.time()
 
             print(f"Image generated (sampled) in {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            print(f'[{i+1}/{len(combined_text)}] Created {save_image_dir}/{file_name}.png')
+            print(
+                f"[{i+1}/{len(combined_text)}] Created {save_image_dir}/{file_name}.png"
+            )
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
-    print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
+    print(
+        f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s"
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

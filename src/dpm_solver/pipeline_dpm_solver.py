@@ -4,29 +4,31 @@ import torch
 from PIL import Image
 
 from .dpm_solver_pytorch import (
-    NoiseScheduleVP, 
-    model_wrapper, 
+    NoiseScheduleVP,
+    model_wrapper,
     DPM_Solver,
 )
 
-class FontDiffuserDPMPipeline():
-    """FontDiffuser pipeline with DPM_Solver scheduler.
-    """
-    
+
+class FontDiffuserDPMPipeline:
+    """FontDiffuser pipeline with DPM_Solver scheduler."""
+
     def __init__(
-        self, 
-        model, 
+        self,
+        model,
         ddpm_train_scheduler,
         version="V3",
         model_type="noise",
         guidance_type="classifier-free",
-        guidance_scale=7.5
+        guidance_scale=7.5,
     ):
         super().__init__()
         self.model = model
         self.train_scheduler_betas = ddpm_train_scheduler.betas
         # Define the noise schedule
-        self.noise_schedule = NoiseScheduleVP(schedule='discrete', betas=self.train_scheduler_betas)
+        self.noise_schedule = NoiseScheduleVP(
+            schedule="discrete", betas=self.train_scheduler_betas
+        )
 
         self.version = version
         self.model_type = model_type
@@ -34,8 +36,7 @@ class FontDiffuserDPMPipeline():
         self.guidance_scale = guidance_scale
 
     def numpy_to_pil(self, images):
-        """Convert a numpy image or a batch of images to a PIL image.
-        """
+        """Convert a numpy image or a batch of images to a PIL image."""
         if images.ndim == 3:
             images = images[None, ...]
         images = (images * 255).round().astype("uint8")
@@ -62,7 +63,9 @@ class FontDiffuserDPMPipeline():
     ):
         model_kwargs = {}
         model_kwargs["version"] = self.version
-        model_kwargs["content_encoder_downsample_size"] = content_encoder_downsample_size
+        model_kwargs["content_encoder_downsample_size"] = (
+            content_encoder_downsample_size
+        )
 
         cond = []
         cond.append(content_images)
@@ -81,9 +84,9 @@ class FontDiffuserDPMPipeline():
             model_type=self.model_type,
             model_kwargs=model_kwargs,
             guidance_type=self.guidance_type,
-            condition=cond, 
+            condition=cond,
             unconditional_condition=uncond,
-            guidance_scale=self.guidance_scale
+            guidance_scale=self.guidance_scale,
         )
 
         # 3. Define dpm-solver and sample by multistep DPM-Solver.
@@ -93,7 +96,7 @@ class FontDiffuserDPMPipeline():
             model_fn=model_fn,
             noise_schedule=self.noise_schedule,
             algorithm_type=algorithm_type,
-            correcting_x0_fn=correcting_x0_fn
+            correcting_x0_fn=correcting_x0_fn,
         )
         # If the DPM is defined on pixel-space images, you can further set `correcting_x0_fn="dynamic_thresholding"
 
@@ -115,7 +118,7 @@ class FontDiffuserDPMPipeline():
 
         x_sample = (x_sample / 2 + 0.5).clamp(0, 1)
         x_sample = x_sample.cpu().permute(0, 2, 3, 1).numpy()
-    
+
         x_images = self.numpy_to_pil(x_sample)
 
         return x_images

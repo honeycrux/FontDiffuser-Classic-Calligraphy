@@ -5,6 +5,7 @@ from torcheval.metrics import StructuralSimilarity, FrechetInceptionDistance
 from src.metrics.mean_absolute_error import MeanAbsoluteError
 from src.metrics.perceptual_similarity import PerceptualSimilarity
 
+
 class FontMetrics:
     def __init__(self, device):
         self.device = device
@@ -26,7 +27,9 @@ class FontMetrics:
 
         for i in range(ground_truth_image_batch.shape[0]):
             for j in range(ground_truth_image_batch.shape[1]):
-                self.l1_metric.update(comparison_image_batch[i][j], ground_truth_image_batch[i][j])
+                self.l1_metric.update(
+                    comparison_image_batch[i][j], ground_truth_image_batch[i][j]
+                )
 
     def compute(self):
         fid_value = self.fid_metric.compute()
