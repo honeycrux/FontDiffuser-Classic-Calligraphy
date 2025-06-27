@@ -6,7 +6,7 @@
 import random
 from typing import Optional
 from sample import (
-    arg_parse, 
+    arg_parse,
     sampling,
     load_fontdiffuser_pipeline,
 )
@@ -14,21 +14,23 @@ import os
 import time
 import torch
 
+
 def load_text_to_generate(file_path: str):
-    with open(file_path, 'r', encoding='utf-8') as text_file:
+    with open(file_path, "r", encoding="utf-8") as text_file:
         text = text_file.read()
         characters = list(set(text))
         return characters
 
+
 def load_essential_args(
-        args,
-        ckpt_dir: str,
-        guidance_scale: float = 7.5,
-    ):
+    args,
+    ckpt_dir: str,
+    guidance_scale: float = 7.5,
+):
     # essential args are the arguments that are required to run load_fontdiffuser_pipeline
     # which includes arguments required to build the model and its components
 
-    args.guidance_type = 'classifier-free'
+    args.guidance_type = "classifier-free"
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
@@ -37,20 +39,21 @@ def load_essential_args(
 
     return args
 
+
 def run_fontdiffuser(
-        args,
-        pipe,
-        content_image_path: Optional[str],
-        character: Optional[str],
-        style_image_path: str,
-        save_image_dir: str,
-        ttf_path: str,
-        sampling_step: int = 20,
-        batch_size: int = 1,
-        seed: Optional[int] = None,
-    ):
-    args.method = 'multistep'
-    args.algorithm_type = 'dpmsolver++'
+    args,
+    pipe,
+    content_image_path: Optional[str],
+    character: Optional[str],
+    style_image_path: str,
+    save_image_dir: str,
+    ttf_path: str,
+    sampling_step: int = 20,
+    batch_size: int = 1,
+    seed: Optional[int] = None,
+):
+    args.method = "multistep"
+    args.algorithm_type = "dpmsolver++"
 
     args.demo = False
     args.save_image = False
@@ -74,17 +77,18 @@ def run_fontdiffuser(
     )
     return out_image
 
+
 def main():
     args = arg_parse()
 
-    ckpt_dir = 'ckpt/'
-    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
-    save_image_dir = 'outputs/style_rec'
-    style_image_path = 'data_lantingjixu/train/TargetImage/lan'
+    ckpt_dir = "ckpt/"
+    ttf_path = "ttf/SourceHanSerifTC-VF.ttf"
+    save_image_dir = "outputs/style_rec"
+    style_image_path = "data_lantingjixu/train/TargetImage/lan"
     seed = 0
 
     # load characters to generate
-    text_to_generate_path = 'lantingjixu_test.txt'
+    text_to_generate_path = "lantingjixu_test.txt"
     characters = load_text_to_generate(text_to_generate_path)
 
     # load fontdiffuser pipeline
@@ -100,8 +104,12 @@ def main():
     no_existence_check = True
 
     for i, character in enumerate(characters):
-        if not no_existence_check and os.path.exists(f'{save_image_dir}/{character}.png'):
-            print(f'[{i+1}/{len(characters)}] {save_image_dir}/{character}.png already exists')
+        if not no_existence_check and os.path.exists(
+            f"{save_image_dir}/{character}.png"
+        ):
+            print(
+                f"[{i+1}/{len(characters)}] {save_image_dir}/{character}.png already exists"
+            )
         else:
             start_time = time.time()
             out_image = run_fontdiffuser(
@@ -115,17 +123,20 @@ def main():
                 seed=seed,
             )
             assert out_image is not None
-            out_image.save(f'{save_image_dir}/{character}.png')
+            out_image.save(f"{save_image_dir}/{character}.png")
             end_time = time.time()
 
             print(f"Finish the sampling process, costing time {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            print(f'[{i+1}/{len(characters)}] created {save_image_dir}/{character}.png')
+            print(f"[{i+1}/{len(characters)}] created {save_image_dir}/{character}.png")
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")
-    print(f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s")
+    print(
+        f"Average sampling time: {0 if total_sample == 0 else total_time/total_sample}s"
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

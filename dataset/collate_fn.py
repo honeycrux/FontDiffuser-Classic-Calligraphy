@@ -13,5 +13,5 @@ class CollateFN(object):
             if isinstance(batch_key_data[0], torch.Tensor):
                 batch_key_data = torch.stack(batch_key_data)
             batched_data[k] = batch_key_data
-        
+
         return batched_data

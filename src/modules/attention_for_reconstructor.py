@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 ### Spatial Transformer ###
 
+
 class SpatialTransformer(nn.Module):
     """
     Transformer block for image-like data. First, project the input (aka embedding) and reshape to b, t, d. Then apply
@@ -40,7 +41,9 @@ class SpatialTransformer(nn.Module):
         self.d_head = d_head
         self.in_channels = in_channels
         d_embed = n_heads * d_head
-        self.norm = torch.nn.GroupNorm(num_groups=num_groups, num_channels=in_channels, eps=1e-6, affine=True)
+        self.norm = torch.nn.GroupNorm(
+            num_groups=num_groups, num_channels=in_channels, eps=1e-6, affine=True
+        )
 
         # self.proj_in = nn.Conv2d(in_channels, d_embed, kernel_size=1, stride=1, padding=0)
 
@@ -64,7 +67,9 @@ class SpatialTransformer(nn.Module):
             assert block is torch.Module
             block._set_attention_slice(slice_size)
 
-    def forward(self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)):
+    def forward(
+        self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)
+    ):
         # note: if no context is given, cross-attention defaults to self-attention
         residual = hidden_states
         hidden_states = self.norm(hidden_states)
@@ -75,7 +80,9 @@ class SpatialTransformer(nn.Module):
         # hidden_states = hidden_states.permute(0, 2, 3, 1).reshape(batch, height * weight, inner_dim)  # here change the shape torch.Size([1, 4096, 128])
         # hidden_states = hidden_states.reshape(batch, channel, height * weight)
         for block in self.transformer_blocks:
-            hidden_states = block(hidden_states, context=context, valid_ratio=valid_ratio)
+            hidden_states = block(
+                hidden_states, context=context, valid_ratio=valid_ratio
+            )
         # hidden_states = hidden_states.reshape(batch, height, weight, inner_dim).permute(0, 3, 1, 2)
         # hidden_states = hidden_states.reshape(batch, channel, height, weight)
         # hidden_states = self.proj_out(hidden_states)
@@ -112,7 +119,11 @@ class BasicTransformerBlock(nn.Module):
         )  # is a self-attention
         self.ff = FeedForward(query_dim, dropout=dropout, glu=gated_ff, mult=2)
         self.attn2 = CrossAttention(
-            query_dim=query_dim, context_dim=context_dim, heads=n_heads, dim_head=d_head, dropout=dropout
+            query_dim=query_dim,
+            context_dim=context_dim,
+            heads=n_heads,
+            dim_head=d_head,
+            dropout=dropout,
         )  # is self-attn if context is none
         self.norm1 = nn.LayerNorm(query_dim)
         self.norm2 = nn.LayerNorm(query_dim)
@@ -123,12 +134,20 @@ class BasicTransformerBlock(nn.Module):
         self.attn1._slice_size = slice_size
         self.attn2._slice_size = slice_size
 
-    def forward(self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)):
+    def forward(
+        self, hidden_states, context=None, valid_ratio: tuple[int, int] = (1, 1)
+    ):
         # Prepare attention mask 1
-        device=hidden_states.device
+        device = hidden_states.device
         _, query_channels, _ = hidden_states.shape
         valid_query_channels = query_channels * valid_ratio[0] // valid_ratio[1]
-        attn_mask_1 = torch.ones(query_channels, query_channels, dtype=torch.int, device=device, requires_grad=False)
+        attn_mask_1 = torch.ones(
+            query_channels,
+            query_channels,
+            dtype=torch.int,
+            device=device,
+            requires_grad=False,
+        )
         attn_mask_1[:valid_query_channels, :valid_query_channels] = 0
 
         # Prepare attention mask 2
@@ -136,14 +155,29 @@ class BasicTransformerBlock(nn.Module):
         if context is not None:
             _, context_channels, _ = context.shape
             valid_context_channels = context_channels * valid_ratio[0] // valid_ratio[1]
-            attn_mask_2 = torch.ones(query_channels, context_channels, dtype=torch.int, device=device, requires_grad=False)
+            attn_mask_2 = torch.ones(
+                query_channels,
+                context_channels,
+                dtype=torch.int,
+                device=device,
+                requires_grad=False,
+            )
             attn_mask_2[:valid_query_channels, :valid_context_channels] = 0
 
-        hidden_states = hidden_states.contiguous() if hidden_states.device.type == "mps" else hidden_states
+        hidden_states = (
+            hidden_states.contiguous()
+            if hidden_states.device.type == "mps"
+            else hidden_states
+        )
         # print("hidden_states (before attn1)", hidden_states.shape)
-        hidden_states = self.attn1(self.norm1(hidden_states), mask=attn_mask_1) + hidden_states
+        hidden_states = (
+            self.attn1(self.norm1(hidden_states), mask=attn_mask_1) + hidden_states
+        )
         # print("hidden_states (after attn1)", hidden_states.shape)
-        hidden_states = self.attn2(self.norm2(hidden_states), context=context, mask=attn_mask_2) + hidden_states
+        hidden_states = (
+            self.attn2(self.norm2(hidden_states), context=context, mask=attn_mask_2)
+            + hidden_states
+        )
         # print("hidden_states (after attn2)", hidden_states.shape)
         hidden_states = self.ff(self.norm3(hidden_states)) + hidden_states
         # print("hidden_states (after ff)", hidden_states.shape)
@@ -163,14 +197,21 @@ class FeedForward(nn.Module):
     """
 
     def __init__(
-        self, dim: int, dim_out: Optional[int] = None, mult: int = 4, glu: bool = False, dropout: float = 0.0
+        self,
+        dim: int,
+        dim_out: Optional[int] = None,
+        mult: int = 4,
+        glu: bool = False,
+        dropout: float = 0.0,
     ):
         super().__init__()
         inner_dim = int(dim * mult)
         dim_out = dim_out if dim_out is not None else dim
         project_in = GEGLU(dim, inner_dim)
 
-        self.net = nn.Sequential(project_in, nn.Dropout(dropout), nn.Linear(inner_dim, dim_out))
+        self.net = nn.Sequential(
+            project_in, nn.Dropout(dropout), nn.Linear(inner_dim, dim_out)
+        )
 
     def forward(self, hidden_states):
         return self.net(hidden_states)
@@ -208,7 +249,12 @@ class CrossAttention(nn.Module):
     """
 
     def __init__(
-        self, query_dim: int, context_dim: Optional[int] = None, heads: int = 8, dim_head: int = 64, dropout: float = 0.0
+        self,
+        query_dim: int,
+        context_dim: Optional[int] = None,
+        heads: int = 8,
+        dim_head: int = 64,
+        dropout: float = 0.0,
     ):
         super().__init__()
         inner_dim = dim_head * heads
@@ -225,20 +271,26 @@ class CrossAttention(nn.Module):
         self.to_k = nn.Linear(context_dim, inner_dim, bias=False)
         self.to_v = nn.Linear(context_dim, inner_dim, bias=False)
 
-        self.to_out = nn.Sequential(nn.Linear(inner_dim, query_dim), nn.Dropout(dropout))
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, query_dim), nn.Dropout(dropout)
+        )
 
     def reshape_heads_to_batch_dim(self, tensor):
         batch_size, seq_len, dim = tensor.shape
         head_size = self.heads
         tensor = tensor.reshape(batch_size, seq_len, head_size, dim // head_size)
-        tensor = tensor.permute(0, 2, 1, 3).reshape(batch_size * head_size, seq_len, dim // head_size)
+        tensor = tensor.permute(0, 2, 1, 3).reshape(
+            batch_size * head_size, seq_len, dim // head_size
+        )
         return tensor
 
     def reshape_batch_dim_to_heads(self, tensor):
         batch_size, seq_len, dim = tensor.shape
         head_size = self.heads
         tensor = tensor.reshape(batch_size // head_size, head_size, seq_len, dim)
-        tensor = tensor.permute(0, 2, 1, 3).reshape(batch_size // head_size, seq_len, dim * head_size)
+        tensor = tensor.permute(0, 2, 1, 3).reshape(
+            batch_size // head_size, seq_len, dim * head_size
+        )
         return tensor
 
     def forward(self, hidden_states, context=None, mask=None):
@@ -262,7 +314,9 @@ class CrossAttention(nn.Module):
         if self._slice_size is None or query.shape[0] // self._slice_size == 1:
             hidden_states = self._attention(query, key, value, mask=mask)
         else:
-            hidden_states = self._sliced_attention(query, key, value, sequence_length, dim, mask=mask)
+            hidden_states = self._sliced_attention(
+                query, key, value, sequence_length, dim, mask=mask
+            )
 
         return self.to_out(hidden_states)
 
@@ -273,7 +327,13 @@ class CrossAttention(nn.Module):
         B, N, D = query.shape
         B, M, D = key.shape
         key_transpose = key.transpose(-1, -2)
-        attention_scores = torch.baddbmm(torch.zeros(B, N, M, device=query.device), query, key_transpose, beta=1.0, alpha=self.scale)
+        attention_scores = torch.baddbmm(
+            torch.zeros(B, N, M, device=query.device),
+            query,
+            key_transpose,
+            beta=1.0,
+            alpha=self.scale,
+        )
         if mask is not None:
             mask = mask.bool()
             attention_scores = attention_scores.masked_fill_(mask, float("-inf"))
@@ -287,14 +347,21 @@ class CrossAttention(nn.Module):
     def _sliced_attention(self, query, key, value, sequence_length, dim, mask=None):
         batch_size_attention = query.shape[0]
         hidden_states = torch.zeros(
-            (batch_size_attention, sequence_length, dim // self.heads), device=query.device, dtype=query.dtype
+            (batch_size_attention, sequence_length, dim // self.heads),
+            device=query.device,
+            dtype=query.dtype,
         )
-        slice_size = self._slice_size if self._slice_size is not None else hidden_states.shape[0]
+        slice_size = (
+            self._slice_size if self._slice_size is not None else hidden_states.shape[0]
+        )
         for i in range(hidden_states.shape[0] // slice_size):
             start_idx = i * slice_size
             end_idx = (i + 1) * slice_size
             attn_slice = (
-                torch.matmul(query[start_idx:end_idx], key[start_idx:end_idx].transpose(1, 2)) * self.scale
+                torch.matmul(
+                    query[start_idx:end_idx], key[start_idx:end_idx].transpose(1, 2)
+                )
+                * self.scale
             )  # TODO: use baddbmm for better performance
             # TODO: implement mask
             attn_slice = attn_slice.softmax(dim=-1)
@@ -306,7 +373,9 @@ class CrossAttention(nn.Module):
         hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
         return hidden_states
 
+
 ### Channel Attention Block ###
+
 
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
@@ -317,7 +386,7 @@ class SELayer(nn.Module):
             # nn.ReLU(inplace=True),
             nn.SiLU(),
             nn.Linear(channel // reduction, channel, bias=False),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -333,8 +402,8 @@ class Mish(torch.nn.Module):
 
 
 class ChannelAttnBlock(nn.Module):
-    """This is the Channel Attention in MCA.
-    """
+    """This is the Channel Attention in MCA."""
+
     def __init__(
         self,
         in_channels,
@@ -344,13 +413,16 @@ class ChannelAttnBlock(nn.Module):
         eps=1e-6,
         non_linearity="swish",
         channel_attn=False,
-        reduction=32):
+        reduction=32,
+    ):
         super().__init__()
 
         if groups_out is None:
             groups_out = groups
 
-        self.norm1 = nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
+        self.norm1 = nn.GroupNorm(
+            num_groups=groups, num_channels=in_channels, eps=eps, affine=True
+        )
         self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1)
 
         if non_linearity == "swish":
@@ -359,15 +431,19 @@ class ChannelAttnBlock(nn.Module):
             self.nonlinearity = Mish()
         elif non_linearity == "silu":
             self.nonlinearity = nn.SiLU()
-        
+
         self.channel_attn = channel_attn
         if self.channel_attn:
             # SE Attention
             self.se_channel_attn = SELayer(channel=in_channels, reduction=reduction)
 
         # Down channel: Use the conv1*1 to down the channel wise
-        self.norm3 = nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
-        self.down_channel = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1) # conv1*1
+        self.norm3 = nn.GroupNorm(
+            num_groups=groups, num_channels=in_channels, eps=eps, affine=True
+        )
+        self.down_channel = nn.Conv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=1
+        )  # conv1*1
 
     def forward(self, inputs: torch.Tensor):
 
