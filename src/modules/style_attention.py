@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # channel -> stroke of character
 class ChannelAttention(nn.Module):
     def __init__(self, embed_size, reduction_ratio=8):
@@ -10,13 +11,15 @@ class ChannelAttention(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(embed_size, embed_size // reduction_ratio),
             nn.ReLU(),
-            nn.Linear(embed_size // reduction_ratio, embed_size)
+            nn.Linear(embed_size // reduction_ratio, embed_size),
         )
+
     def forward(self, x):
         b, _, _ = x.size()
-        y = self.avg_pool(x.transpose(1,2)).view(b, -1)
+        y = self.avg_pool(x.transpose(1, 2)).view(b, -1)
         y = self.fc(y).view(b, 1, -1)  # [batch_size, 1, embed_size]
         return x * y.sigmoid()
+
 
 class MultiHeadStyleAttention(nn.Module):
     def __init__(self, embed_size, heads):
@@ -33,7 +36,7 @@ class MultiHeadStyleAttention(nn.Module):
         self.keys = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.fc_out = nn.Linear(heads * self.head_dim, embed_size)
-        self.channel_attn = ChannelAttention(embed_size) 
+        self.channel_attn = ChannelAttention(embed_size)
 
     def forward(self, values, keys, query, mask=None):
         N = query.shape[0]
@@ -60,8 +63,9 @@ class MultiHeadStyleAttention(nn.Module):
         )
 
         out = self.fc_out(out)
-        out = self.channel_attn(out) 
+        out = self.channel_attn(out)
         return out
+
 
 # adjust the mean value and S.D. value of the style tensor
 class AdaIN(nn.Module):
@@ -74,24 +78,26 @@ class AdaIN(nn.Module):
         x_std = x.std(dim=1, keepdim=True)
         return style_std * (x - x_mean) / (x_std + 1e-5) + style_mean
 
+
 class StyleFeedForward(nn.Module):
     def __init__(self, embed_size, ff_hidden_dim):
         super(StyleFeedForward, self).__init__()
         self.fc1 = nn.Linear(embed_size, ff_hidden_dim)
         self.fc2 = nn.Linear(ff_hidden_dim, embed_size)
-        self.fc3 = nn.Linear(embed_size, embed_size)  
-        self.dropout = nn.Dropout(0.1)  
-        self.adain = AdaIN(embed_size)  
+        self.fc3 = nn.Linear(embed_size, embed_size)
+        self.dropout = nn.Dropout(0.1)
+        self.adain = AdaIN(embed_size)
 
     def forward(self, x):
         style_mean = x.mean(dim=1, keepdim=True)
         style_std = x.std(dim=1, keepdim=True)
         x = F.relu(self.fc1(x))
-        x = self.fc2(x)  
-        x = self.adain(x, style_mean, style_std)  
+        x = self.fc2(x)
+        x = self.adain(x, style_mean, style_std)
         x = self.dropout(x)
         x = self.fc3(x)
         return x
+
 
 class StyleAttentionModel(nn.Module):
     def __init__(self, embed_size, heads, ff_hidden_dim):
@@ -100,7 +106,7 @@ class StyleAttentionModel(nn.Module):
         self.feed_forward = StyleFeedForward(embed_size, ff_hidden_dim)
         self.norm1 = nn.LayerNorm(embed_size)
         self.norm2 = nn.LayerNorm(embed_size)
-        self.dropout = nn.Dropout(0.1)  
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
         # Tokenization
@@ -112,12 +118,12 @@ class StyleAttentionModel(nn.Module):
 
         # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
-        
+
         # Layer normalization
         x = self.norm1(attn_out + x)
 
         # Dropout
-        x = self.dropout(x)  
+        x = self.dropout(x)
 
         # Feed forward
         ff_out = self.feed_forward(x)
@@ -133,13 +139,14 @@ class StyleAttentionModel(nn.Module):
 
         return out
 
+
 # Example usage
 if __name__ == "__main__":
     embed_size = 1024
     heads = 8
     ff_hidden_dim = 2048
     batch_size = 32
-    K = 5  
+    K = 5
 
     style_tensors = torch.randn(batch_size, K, 1024, 3, 3)
 

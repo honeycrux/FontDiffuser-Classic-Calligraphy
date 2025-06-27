@@ -2,17 +2,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class RelativePositionBias(nn.Module):
     def __init__(self, heads, max_pos=64):
         super().__init__()
         self.heads = heads
         self.max_pos = max_pos
-        self.pos_table = nn.Parameter(torch.randn(2*max_pos-1, heads)) 
+        self.pos_table = nn.Parameter(torch.randn(2 * max_pos - 1, heads))
 
     def forward(self, query_len, key_len):
         pos = torch.arange(query_len)[:, None] - torch.arange(key_len)[None, :]
-        pos = pos.clamp(-self.max_pos+1, self.max_pos-1) + self.max_pos -1
+        pos = pos.clamp(-self.max_pos + 1, self.max_pos - 1) + self.max_pos - 1
         return self.pos_table[pos].permute(1, 0, 2)  # Shape: [heads, Q, K]
+
 
 def window_partition(x, window_size):
     B, L, C = x.shape
@@ -21,6 +23,7 @@ def window_partition(x, window_size):
     L = L + pad_len
     x = x.view(B, L // window_size, window_size, C)
     return x.permute(0, 2, 1, 3), pad_len  # [B, window_size, num_windows, C], pad_len
+
 
 class MultiHeadContentAttention(nn.Module):
     def __init__(self, embed_size, heads):
@@ -57,9 +60,13 @@ class MultiHeadContentAttention(nn.Module):
         # print(f"Queries shape before window partition: {queries.shape}")
 
         # Reshape to (N * heads, L, head_dim) for window partition
-        values = values.permute(0, 2, 1, 3).reshape(N * self.heads, value_len, self.head_dim)
+        values = values.permute(0, 2, 1, 3).reshape(
+            N * self.heads, value_len, self.head_dim
+        )
         keys = keys.permute(0, 2, 1, 3).reshape(N * self.heads, key_len, self.head_dim)
-        queries = queries.permute(0, 2, 1, 3).reshape(N * self.heads, query_len, self.head_dim)
+        queries = queries.permute(0, 2, 1, 3).reshape(
+            N * self.heads, query_len, self.head_dim
+        )
 
         # Window-based attention
         window_size = min(value_len, key_len, query_len) // self.heads
@@ -88,7 +95,8 @@ class MultiHeadContentAttention(nn.Module):
 
         out = self.fc_out(out)
         return out[:, :query_len, :]  # Remove padding
-    
+
+
 class ContentFeedForward(nn.Module):
     def __init__(self, embed_size, ff_hidden_dim):
         super(ContentFeedForward, self).__init__()
@@ -98,11 +106,12 @@ class ContentFeedForward(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)  
+        x = self.dropout(x)
         x = self.fc2(x)
         return x
 
-class RMSNorm(nn.Module):   
+
+class RMSNorm(nn.Module):
     def __init__(self, embed_size, eps=1e-6):
         super().__init__()
         self.eps = eps
@@ -112,15 +121,16 @@ class RMSNorm(nn.Module):
         norm = x.norm(2, dim=-1, keepdim=True)
         return self.scale * x / (norm + self.eps)
 
+
 class ContentAttentionModel(nn.Module):
     def __init__(self, embed_size, heads, ff_hidden_dim):
         super(ContentAttentionModel, self).__init__()
         self.attention = MultiHeadContentAttention(embed_size, heads)
         self.feed_forward = ContentFeedForward(embed_size, ff_hidden_dim)
-        self.norm1 = RMSNorm(embed_size)  
+        self.norm1 = RMSNorm(embed_size)
         self.norm2 = RMSNorm(embed_size)
-        self.alpha = nn.Parameter(torch.tensor(0.1))  
-        self.dropout = nn.Dropout(0.1)  
+        self.alpha = nn.Parameter(torch.tensor(0.1))
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, x):
         # Tokenization
@@ -132,16 +142,16 @@ class ContentAttentionModel(nn.Module):
 
         # Multi-head attention
         attn_out = self.attention(x, x, x, mask=None)
-        
+
         # RMS
         x = self.norm1(self.alpha * attn_out + x)
-        
+
         # Dropout
         x = self.dropout(x)
-        
+
         # Feed forward
         ff_out = self.feed_forward(x)
-        
+
         # RMS
         out = self.norm2(self.alpha * ff_out + x)
 
@@ -150,21 +160,22 @@ class ContentAttentionModel(nn.Module):
 
         # print("Inference complete.")
         # print("Final Content Tensor Shape:", out.shape)
-        
+
         return out
+
 
 # Example usage
 if __name__ == "__main__":
     embed_size = 1024
     heads = 8
     ff_hidden_dim = 2048
-    batch_size = 32  
+    batch_size = 32
 
     content_tensors_list = [
-        torch.randn(batch_size, 5, 3, 96, 96),  
-        torch.randn(batch_size, 5, 64, 48, 48),  
-        torch.randn(batch_size, 5, 128, 24, 24),  
-        torch.randn(batch_size, 5, 256, 12, 12), 
+        torch.randn(batch_size, 5, 3, 96, 96),
+        torch.randn(batch_size, 5, 64, 48, 48),
+        torch.randn(batch_size, 5, 128, 24, 24),
+        torch.randn(batch_size, 5, 256, 12, 12),
     ]
 
     model = ContentAttentionModel(embed_size, heads, ff_hidden_dim)

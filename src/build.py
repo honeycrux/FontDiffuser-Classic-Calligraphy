@@ -2,8 +2,8 @@
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from src import (
-    ContentEncoder, 
-    StyleEncoder, 
+    ContentEncoder,
+    StyleEncoder,
     UNet,
     SCR,
     KFeatureExtractor,
@@ -17,19 +17,23 @@ def build_unet(args):
         out_channels=3,
         flip_sin_to_cos=True,
         freq_shift=0,
-        down_block_types=['DownBlock2D', 
-                          'MCADownBlock2D',
-                          'MCADownBlock2D', 
-                          'DownBlock2D'],
-        up_block_types=['UpBlock2D', 
-                        'StyleRSIUpBlock2D',
-                        'StyleRSIUpBlock2D', 
-                        'UpBlock2D'],
-        block_out_channels=args.unet_channels, 
+        down_block_types=[
+            "DownBlock2D",
+            "MCADownBlock2D",
+            "MCADownBlock2D",
+            "DownBlock2D",
+        ],
+        up_block_types=[
+            "UpBlock2D",
+            "StyleRSIUpBlock2D",
+            "StyleRSIUpBlock2D",
+            "UpBlock2D",
+        ],
+        block_out_channels=args.unet_channels,
         layers_per_block=2,
         downsample_padding=1,
         mid_block_scale_factor=1,
-        act_fn='silu',
+        act_fn="silu",
         norm_num_groups=32,
         norm_eps=1e-05,
         cross_attention_dim=args.style_start_channel * 16,
@@ -37,41 +41,40 @@ def build_unet(args):
         channel_attn=args.channel_attn,
         content_encoder_downsample_size=args.content_encoder_downsample_size,
         content_start_channel=args.content_start_channel,
-        reduction=32)
-    
+        reduction=32,
+    )
+
     return unet
 
 
 def build_style_encoder(args):
     style_image_encoder = StyleEncoder(
-        G_ch=args.style_start_channel,
-        resolution=args.style_image_size[0])
+        G_ch=args.style_start_channel, resolution=args.style_image_size[0]
+    )
     print("Get CG-GAN Style Encoder!")
     return style_image_encoder
 
 
 def build_content_encoder(args):
     content_image_encoder = ContentEncoder(
-        G_ch=args.content_start_channel,
-        resolution=args.content_image_size[0])
+        G_ch=args.content_start_channel, resolution=args.content_image_size[0]
+    )
     print("Get CG-GAN Content Encoder!")
     return content_image_encoder
 
 
 def build_scr(args):
     scr = SCR(
-        temperature=args.temperature,
-        mode=args.mode,
-        image_size=args.scr_image_size)
+        temperature=args.temperature, mode=args.mode, image_size=args.scr_image_size
+    )
     print("Loaded SCR module for supervision successfully!")
     return scr
 
+
 def build_k_feature_extractor(args):
     k_feature_extractor = KFeatureExtractor(
-        embed_size=1024,
-        heads=8,
-        ff_hidden_dim=2048,
-        K=args.k_shot)
+        embed_size=1024, heads=8, ff_hidden_dim=2048, K=args.k_shot
+    )
     return k_feature_extractor
 
 
@@ -83,5 +86,6 @@ def build_ddpm_scheduler(args):
         beta_schedule=args.beta_scheduler,
         trained_betas=None,
         variance_type="fixed_small",
-        clip_sample=True)
+        clip_sample=True,
+    )
     return ddpm_scheduler

@@ -11,9 +11,10 @@ from PIL import Image
 
 IMAGE_EXTENSIONS = {"bmp", "jpg", "jpeg", "pgm", "png", "ppm", "tif", "tiff", "webp"}
 
+
 def main():
-    comparison_dataset_dir = 'outputs/original'
-    ground_truth_dataset_dir = 'outputs/target'
+    comparison_dataset_dir = "outputs/original"
+    ground_truth_dataset_dir = "outputs/target"
 
     device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
@@ -25,15 +26,17 @@ def main():
     performance = FontMetrics(device=device)
 
     for comparison_file in comparison_dataset_dir_path.iterdir():
-        if comparison_file.suffix.lower().lstrip('.') in IMAGE_EXTENSIONS:
+        if comparison_file.suffix.lower().lstrip(".") in IMAGE_EXTENSIONS:
             target_file = ground_truth_dataset_dir_path.joinpath(comparison_file.name)
             if not target_file.exists():
-                print(f'File {comparison_file.name} does not exist in the ground truth dataset, skipping')
+                print(
+                    f"File {comparison_file.name} does not exist in the ground truth dataset, skipping"
+                )
                 break
 
             # Load images
-            ground_truth_image = Image.open(target_file).convert('RGB')
-            comparison_image = Image.open(comparison_file).convert('RGB')
+            ground_truth_image = Image.open(target_file).convert("RGB")
+            comparison_image = Image.open(comparison_file).convert("RGB")
             if comparison_image.size != ground_truth_image.size:
                 comparison_image = comparison_image.resize(ground_truth_image.size)
 
@@ -49,12 +52,18 @@ def main():
             performance.update(comparison_image_batch, ground_truth_image_batch)
 
     perf = performance.compute()
-    fid_value, ssim_value, lpips_value, l1_value = perf['fid'], perf['ssim'], perf['lpips'], perf['l1']
+    fid_value, ssim_value, lpips_value, l1_value = (
+        perf["fid"],
+        perf["ssim"],
+        perf["lpips"],
+        perf["l1"],
+    )
 
-    print(f'FID value: {fid_value}')
-    print(f'SSIM value: {ssim_value}')
-    print(f'LPIPS value: {lpips_value}')
-    print(f'L1 value: {l1_value}')
+    print(f"FID value: {fid_value}")
+    print(f"SSIM value: {ssim_value}")
+    print(f"LPIPS value: {lpips_value}")
+    print(f"L1 value: {l1_value}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
