@@ -279,7 +279,6 @@ def sampling(args, pipe, content_image=None, style_images=None):
         return images[0]
 
 
-# ControlNet
 def load_controlnet_pipeline(
     args,
     config_path="lllyasviel/sd-controlnet-canny",
