@@ -120,7 +120,9 @@ def image_process_with_image(
     assert isinstance(
         content_image, Image.Image
     ), "The content image should be PIL.Image.Image."
-    assert isinstance(style_image, Image.Image), "The style images should be list."
+    assert isinstance(
+        style_image, Image.Image
+    ), "The style image should be PIL.Image.Image."
 
     return content_image, style_image
 
