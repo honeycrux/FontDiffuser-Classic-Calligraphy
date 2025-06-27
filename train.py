@@ -472,6 +472,10 @@ def main():
                     f"{save_dir}/content_encoder.pth",
                 )
                 torch.save(
+                    get_submodel(model, "k_feature_extractor").state_dict(),
+                    f"{save_dir}/k_feature_extractor.pth",
+                )
+                torch.save(
                     {
                         "model": get_model(model).state_dict(),
                         "optimizer": optimizer.state_dict(),
