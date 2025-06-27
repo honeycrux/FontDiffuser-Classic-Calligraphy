@@ -1,7 +1,7 @@
 # This script is provided by the FYP24 project group.
 # This is the driver code for configuring and invoking the sampling process, which can be used in place of scripts/sample_content_character.sh.
-# The ttf path, save path, text-to-generate path, and style image path can be configured in the main function.
-# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (data_lantingjixu/lantingjixu_used.txt) as the text-to-generate file.
+# The ckpt dir, ttf path, save image dir, style image dir, seed, title data path, and text data path can be configured in the main function.
+# For example, to generate the entire lantingjixu text, use the whole lantingjixu text (data_lantingjixu/lantingjixu_used.txt) as the text data path.
 
 import random
 from typing import Optional
@@ -13,13 +13,26 @@ from sample import (
 import os
 import time
 import torch
+from collections import defaultdict
 
 
-def load_text_to_generate(file_path: str):
+def load_text(file_path: str):
     with open(file_path, "r", encoding="utf-8") as text_file:
         text = text_file.read()
-        characters = list(set(text))
-        return characters
+        return text
+
+
+def get_file_names(characters: str):
+    word_count = defaultdict(lambda: 0)
+    file_names = []
+    for character in characters:
+        seq = word_count[character]
+        if seq == 0:
+            file_names.append(f"{character}")
+        else:
+            file_names.append(f"{character}+{seq}")
+        word_count[character] += 1
+    return file_names
 
 
 def load_essential_args(
@@ -45,7 +58,7 @@ def run_fontdiffuser(
     pipe,
     content_image_path: Optional[str],
     character: Optional[str],
-    style_image_path: str,
+    style_image_dir: str,
     save_image_dir: str,
     ttf_path: str,
     sampling_step: int = 20,
@@ -61,7 +74,7 @@ def run_fontdiffuser(
     args.content_image_path = content_image_path
     args.character_input = False if content_image_path is not None else True
     args.content_character = character
-    args.style_image_path = style_image_path
+    args.style_image_path = style_image_dir
     args.save_image_dir = save_image_dir
     args.ttf_path = ttf_path
     args.sampling_step = sampling_step
@@ -83,13 +96,22 @@ def main():
 
     ckpt_dir = "ckpt/"
     ttf_path = "ttf/SourceHanSerifTC-VF.ttf"
-    save_image_dir = "outputs/few_shot"
-    style_image_path = "data_lantingjixu/train/TargetImage/lan"
-    seed = 0
+    save_image_dir = "outputs/"
+    style_image_dir = "data_lantingjixu/train/TargetImage/lan"
+    seed = None
 
-    # load characters to generate
-    text_to_generate_path = "lantingjixu_test.txt"
-    characters = load_text_to_generate(text_to_generate_path)
+    require_title = True  # Whether to include the title
+
+    title_data_path = (
+        "data_lantingjixu/lantingjixu_title.txt"  # Set the path to the title
+    )
+    text_data_path = "data_lantingjixu/lantingjixu_used.txt"  # Set the path to the text
+
+    title_text = load_text(title_data_path) if require_title else ""
+    text_text = load_text(text_data_path)
+
+    combined_text = title_text + text_text
+    file_names = get_file_names(combined_text)
 
     # load fontdiffuser pipeline
     load_essential_args(
@@ -103,33 +125,36 @@ def main():
 
     no_existence_check = True
 
-    for i, character in enumerate(characters):
+    for i, (character, file_name) in enumerate(zip(combined_text, file_names)):
         if not no_existence_check and os.path.exists(
             f"{save_image_dir}/{character}.png"
         ):
             print(
-                f"[{i+1}/{len(characters)}] {save_image_dir}/{character}.png already exists"
+                f"[{i+1}/{len(combined_text)}] {save_image_dir}/{character}.png already exists"
             )
         else:
             start_time = time.time()
+
             out_image = run_fontdiffuser(
                 args=args,
                 pipe=pipe,
                 content_image_path=None,
                 character=character,
-                style_image_path=style_image_path,
+                style_image_dir=style_image_dir,
                 save_image_dir=save_image_dir,
                 ttf_path=ttf_path,
                 seed=seed,
             )
             assert out_image is not None
-            out_image.save(f"{save_image_dir}/{character}.png")
+            out_image.save(f"{save_image_dir}/{file_name}.png")
             end_time = time.time()
 
-            print(f"Finish the sampling process, costing time {end_time - start_time}s")
+            print(f"Image generated (sampled) in {end_time - start_time}s")
             total_time += end_time - start_time
             total_sample += 1
-            print(f"[{i+1}/{len(characters)}] created {save_image_dir}/{character}.png")
+            print(
+                f"[{i+1}/{len(combined_text)}] Created {save_image_dir}/{file_name}.png"
+            )
 
     print(f"Total sampling time: {total_time}s")
     print(f"Total sampling: {total_sample}")

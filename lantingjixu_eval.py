@@ -208,7 +208,7 @@ def main():
     expect_existing_profile = True
 
     # Results location
-    results_output_dir = "outputs/eval_few_shot"
+    results_output_dir = "outputs/eval_attn_few_shot"
 
     ### Part 1: Load/Generate the test profile ###
 
