@@ -8,20 +8,21 @@ import random
 import gradio as gr
 from PIL import Image
 from sample import (
-    arg_parse, 
+    arg_parse,
     sampling,
     load_fontdiffuser_pipeline,
 )
 
+
 def load_essential_args(
-        args,
-        ckpt_dir: str,
-        guidance_scale: float = 7.5,
-    ):
+    args,
+    ckpt_dir: str,
+    guidance_scale: float = 7.5,
+):
     # essential args are the arguments that are required to run load_fontdiffuser_pipeline
     # which includes arguments required to build the model and its components
 
-    args.guidance_type = 'classifier-free'
+    args.guidance_type = "classifier-free"
 
     args.device = torch.device("cuda" if (torch.cuda.is_available()) else "cpu")
 
@@ -30,19 +31,20 @@ def load_essential_args(
 
     return args
 
+
 def run_fontdiffuser_demo_mode(
-        args,
-        pipe,
-        ttf_path: str,
-        source_image: Optional[Image.Image],
-        character: str,
-        reference_image: Image.Image,
-        sampling_step: int = 20,
-        batch_size: int = 1,
-        seed: Optional[int] = None,
-    ):
-    args.method = 'multistep'
-    args.algorithm_type = 'dpmsolver++'
+    args,
+    pipe,
+    ttf_path: str,
+    source_image: Optional[Image.Image],
+    character: str,
+    reference_image: Image.Image,
+    sampling_step: int = 20,
+    batch_size: int = 1,
+    seed: Optional[int] = None,
+):
+    args.method = "multistep"
+    args.algorithm_type = "dpmsolver++"
 
     args.demo = True
 
@@ -65,8 +67,8 @@ def run_fontdiffuser_demo_mode(
 
 def main():
     args = arg_parse()
-    ckpt_dir = 'ckpt'
-    ttf_path = 'ttf/SourceHanSerifTC-VF.ttf'
+    ckpt_dir = "ckpt"
+    ttf_path = "ttf/SourceHanSerifTC-VF.ttf"
 
     # load fontdiffuser pipeline
     load_essential_args(
@@ -78,7 +80,8 @@ def main():
     with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column(scale=1):
-                gr.HTML("""
+                gr.HTML(
+                    """
                     <div style="text-align: center; max-width: 1200px; margin: 20px auto;">
                     <h1 style="font-weight: 900; font-size: 3rem; margin: 0rem">
                         FontDiffuser
@@ -106,87 +109,149 @@ def main():
                     2. FontDiffuser excels in generating complex character and handling large style variation. And it achieves state-of-the-art performance.
                     </h2>
                     </div>
-                    """)
-                gr.Image('figures/result_vis.png')
-                gr.Image('figures/demo_tips.png')
+                    """
+                )
+                gr.Image("figures/result_vis.png")
+                gr.Image("figures/demo_tips.png")
             with gr.Column(scale=1):
                 with gr.Row():
-                    source_image = gr.Image(width=320, label='[Option 1] Source Image', image_mode='RGB', type='pil')
-                    reference_image = gr.Image(width=320, label='Reference Image', image_mode='RGB', type='pil')
+                    source_image = gr.Image(
+                        width=320,
+                        label="[Option 1] Source Image",
+                        image_mode="RGB",
+                        type="pil",
+                    )
+                    reference_image = gr.Image(
+                        width=320, label="Reference Image", image_mode="RGB", type="pil"
+                    )
                 with gr.Row():
-                    character = gr.Textbox(value='隆', label='[Option 2] Source Character')
+                    character = gr.Textbox(
+                        value="隆", label="[Option 2] Source Character"
+                    )
                 with gr.Row():
-                    fontdiffuser_output_image = gr.Image(height=200, label="FontDiffuser Output Image", image_mode='RGB', type='pil')
+                    fontdiffuser_output_image = gr.Image(
+                        height=200,
+                        label="FontDiffuser Output Image",
+                        image_mode="RGB",
+                        type="pil",
+                    )
 
-                sampling_step = gr.Slider(20, 50, value=20, step=10, 
-                                          label="Sampling Step", info="The sampling step by FontDiffuser.")
-                guidance_scale = gr.Slider(1, 12, value=7.5, step=0.5, 
-                                           label="Scale of Classifier-free Guidance", 
-                                           info="The scale used for classifier-free guidance sampling")
-                batch_size = gr.Slider(1, 4, value=1, step=1, 
-                                       label="Batch Size", info="The number of images to be sampled.")
+                sampling_step = gr.Slider(
+                    20,
+                    50,
+                    value=20,
+                    step=10,
+                    label="Sampling Step",
+                    info="The sampling step by FontDiffuser.",
+                )
+                guidance_scale = gr.Slider(
+                    1,
+                    12,
+                    value=7.5,
+                    step=0.5,
+                    label="Scale of Classifier-free Guidance",
+                    info="The scale used for classifier-free guidance sampling",
+                )
+                batch_size = gr.Slider(
+                    1,
+                    4,
+                    value=1,
+                    step=1,
+                    label="Batch Size",
+                    info="The number of images to be sampled.",
+                )
 
-                FontDiffuser = gr.Button('Run FontDiffuser')
-                gr.Markdown("## <font color=#008000, size=6>Examples that You Can Choose Below⬇️</font>")
+                FontDiffuser = gr.Button("Run FontDiffuser")
+                gr.Markdown(
+                    "## <font color=#008000, size=6>Examples that You Can Choose Below⬇️</font>"
+                )
         with gr.Row():
             gr.Markdown("## Examples")
         with gr.Row():
             with gr.Column(scale=1):
                 gr.Markdown("## Example 1️⃣: Source Image and Reference Image")
-                gr.Markdown("### In this mode, we provide both the source image and \
-                            the reference image for you to try our demo!")
+                gr.Markdown(
+                    "### In this mode, we provide both the source image and \
+                            the reference image for you to try our demo!"
+                )
                 gr.Examples(
-                    examples=[['figures/source_imgs/source_灨.png', 'figures/ref_imgs/ref_籍.png'], 
-                            ['figures/source_imgs/source_鑻.png', 'figures/ref_imgs/ref_鹰.png'],
-                            ['figures/source_imgs/source_鑫.png', 'figures/ref_imgs/ref_壤.png'],
-                            ['figures/source_imgs/source_釅.png', 'figures/ref_imgs/ref_雕.png']],
-                    inputs=[source_image, reference_image]
+                    examples=[
+                        [
+                            "figures/source_imgs/source_灨.png",
+                            "figures/ref_imgs/ref_籍.png",
+                        ],
+                        [
+                            "figures/source_imgs/source_鑻.png",
+                            "figures/ref_imgs/ref_鹰.png",
+                        ],
+                        [
+                            "figures/source_imgs/source_鑫.png",
+                            "figures/ref_imgs/ref_壤.png",
+                        ],
+                        [
+                            "figures/source_imgs/source_釅.png",
+                            "figures/ref_imgs/ref_雕.png",
+                        ],
+                    ],
+                    inputs=[source_image, reference_image],
                 )
             with gr.Column(scale=1):
                 gr.Markdown("## Example 2️⃣: Character and Reference Image")
-                gr.Markdown("### In this mode, we provide the content character and the reference image \
-                            for you to try our demo!")
+                gr.Markdown(
+                    "### In this mode, we provide the content character and the reference image \
+                            for you to try our demo!"
+                )
                 gr.Examples(
-                    examples=[['龍', 'figures/ref_imgs/ref_鷢.png'],
-                            ['轉', 'figures/ref_imgs/ref_鲸.png'],
-                            ['懭', 'figures/ref_imgs/ref_籍_1.png'],
-                            ['識', 'figures/ref_imgs/ref_鞣.png']],
-                    inputs=[character, reference_image]
+                    examples=[
+                        ["龍", "figures/ref_imgs/ref_鷢.png"],
+                        ["轉", "figures/ref_imgs/ref_鲸.png"],
+                        ["懭", "figures/ref_imgs/ref_籍_1.png"],
+                        ["識", "figures/ref_imgs/ref_鞣.png"],
+                    ],
+                    inputs=[character, reference_image],
                 )
             with gr.Column(scale=1):
                 gr.Markdown("## Example 3️⃣: Reference Image")
-                gr.Markdown("### In this mode, we provide only the reference image, \
+                gr.Markdown(
+                    "### In this mode, we provide only the reference image, \
                             you can upload your own source image or you choose the character above \
-                            to try our demo!")
+                            to try our demo!"
+                )
                 gr.Examples(
-                    examples=['figures/ref_imgs/ref_闡.png', 
-                            'figures/ref_imgs/ref_雕.png',
-                            'figures/ref_imgs/ref_豄.png',
-                            'figures/ref_imgs/ref_馨.png',
-                            'figures/ref_imgs/ref_鲸.png',
-                            'figures/ref_imgs/ref_檀.png',
-                            'figures/ref_imgs/ref_鞣.png',
-                            'figures/ref_imgs/ref_穗.png',
-                            'figures/ref_imgs/ref_欟.png',
-                            'figures/ref_imgs/ref_籍_1.png',
-                            'figures/ref_imgs/ref_鷢.png',
-                            'figures/ref_imgs/ref_媚.png',
-                            'figures/ref_imgs/ref_籍.png',
-                            'figures/ref_imgs/ref_壤.png',
-                            'figures/ref_imgs/ref_蜓.png',
-                            'figures/ref_imgs/ref_鹰.png'],
+                    examples=[
+                        "figures/ref_imgs/ref_闡.png",
+                        "figures/ref_imgs/ref_雕.png",
+                        "figures/ref_imgs/ref_豄.png",
+                        "figures/ref_imgs/ref_馨.png",
+                        "figures/ref_imgs/ref_鲸.png",
+                        "figures/ref_imgs/ref_檀.png",
+                        "figures/ref_imgs/ref_鞣.png",
+                        "figures/ref_imgs/ref_穗.png",
+                        "figures/ref_imgs/ref_欟.png",
+                        "figures/ref_imgs/ref_籍_1.png",
+                        "figures/ref_imgs/ref_鷢.png",
+                        "figures/ref_imgs/ref_媚.png",
+                        "figures/ref_imgs/ref_籍.png",
+                        "figures/ref_imgs/ref_壤.png",
+                        "figures/ref_imgs/ref_蜓.png",
+                        "figures/ref_imgs/ref_鹰.png",
+                    ],
                     examples_per_page=20,
-                    inputs=reference_image
+                    inputs=reference_image,
                 )
         FontDiffuser.click(
             fn=functools.partial(run_fontdiffuser_demo_mode, args, pipe, ttf_path),
-            inputs=[source_image, 
-                    character, 
-                    reference_image,
-                    sampling_step,
-                    batch_size],
-            outputs=fontdiffuser_output_image)
+            inputs=[
+                source_image,
+                character,
+                reference_image,
+                sampling_step,
+                batch_size,
+            ],
+            outputs=fontdiffuser_output_image,
+        )
     demo.launch(debug=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

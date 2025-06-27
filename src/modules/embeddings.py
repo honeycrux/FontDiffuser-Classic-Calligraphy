@@ -70,7 +70,9 @@ class TimestepEmbedding(nn.Module):
 
 
 class Timesteps(nn.Module):
-    def __init__(self, num_channels: int, flip_sin_to_cos: bool, downscale_freq_shift: float):
+    def __init__(
+        self, num_channels: int, flip_sin_to_cos: bool, downscale_freq_shift: float
+    ):
         super().__init__()
         self.num_channels = num_channels
         self.flip_sin_to_cos = flip_sin_to_cos

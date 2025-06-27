@@ -27,7 +27,9 @@ def upfirdn2d_native(tensor, kernel, up=1, down=1, pad=(0, 0)):
     out = F.pad(out, [0, 0, 0, up_x - 1, 0, 0, 0, up_y - 1])
     out = out.view(-1, in_h * up_y, in_w * up_x, minor)
 
-    out = F.pad(out, [0, 0, max(pad_x0, 0), max(pad_x1, 0), max(pad_y0, 0), max(pad_y1, 0)])
+    out = F.pad(
+        out, [0, 0, max(pad_x0, 0), max(pad_x1, 0), max(pad_y0, 0), max(pad_y1, 0)]
+    )
     out = out.to(tensor.device)  # Move back to mps if necessary
     out = out[
         :,
@@ -37,7 +39,9 @@ def upfirdn2d_native(tensor, kernel, up=1, down=1, pad=(0, 0)):
     ]
 
     out = out.permute(0, 3, 1, 2)
-    out = out.reshape([-1, 1, in_h * up_y + pad_y0 + pad_y1, in_w * up_x + pad_x0 + pad_x1])
+    out = out.reshape(
+        [-1, 1, in_h * up_y + pad_y0 + pad_y1, in_w * up_x + pad_x0 + pad_x1]
+    )
     w = torch.flip(kernel, [0, 1]).view(1, 1, kernel_h, kernel_w)
     out = F.conv2d(out, w)
     out = out.reshape(
@@ -122,7 +126,10 @@ def downsample_2d(hidden_states, kernel=None, factor=2, gain=1):
     kernel = kernel * gain
     pad_value = kernel.shape[0] - factor
     output = upfirdn2d_native(
-        hidden_states, kernel.to(device=hidden_states.device), down=factor, pad=((pad_value + 1) // 2, pad_value // 2)
+        hidden_states,
+        kernel.to(device=hidden_states.device),
+        down=factor,
+        pad=((pad_value + 1) // 2, pad_value // 2),
     )
     return output
 
@@ -142,7 +149,9 @@ class Downsample2D(nn.Module):
         dims: determines if the signal is 1D, 2D, or 3D. If 3D, then downsampling occurs in the inner-two dimensions.
     """
 
-    def __init__(self, channels, use_conv=False, out_channels=None, padding=1, name="conv"):
+    def __init__(
+        self, channels, use_conv=False, out_channels=None, padding=1, name="conv"
+    ):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
@@ -152,7 +161,9 @@ class Downsample2D(nn.Module):
         self.name = name
 
         if use_conv:
-            conv = nn.Conv2d(self.channels, self.out_channels, 3, stride=stride, padding=padding)
+            conv = nn.Conv2d(
+                self.channels, self.out_channels, 3, stride=stride, padding=padding
+            )
         else:
             assert self.channels == self.out_channels
             conv = nn.AvgPool2d(kernel_size=stride, stride=stride)
@@ -214,18 +225,26 @@ class ResnetBlock2D(nn.Module):
         if groups_out is None:
             groups_out = groups
 
-        self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
+        self.norm1 = torch.nn.GroupNorm(
+            num_groups=groups, num_channels=in_channels, eps=eps, affine=True
+        )
 
-        self.conv1 = torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
 
         if temb_channels is not None:
             self.time_emb_proj = torch.nn.Linear(temb_channels, out_channels)
         else:
             self.time_emb_proj = None
 
-        self.norm2 = torch.nn.GroupNorm(num_groups=groups_out, num_channels=out_channels, eps=eps, affine=True)
+        self.norm2 = torch.nn.GroupNorm(
+            num_groups=groups_out, num_channels=out_channels, eps=eps, affine=True
+        )
         self.dropout = torch.nn.Dropout(dropout)
-        self.conv2 = torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.conv2 = torch.nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
 
         if non_linearity == "swish":
             self.nonlinearity = lambda x: F.silu(x)
@@ -250,21 +269,33 @@ class ResnetBlock2D(nn.Module):
             elif kernel == "sde_vp":
                 self.downsample = partial(F.avg_pool2d, kernel_size=2, stride=2)
             else:
-                self.downsample = Downsample2D(in_channels, use_conv=False, padding=1, name="op")
+                self.downsample = Downsample2D(
+                    in_channels, use_conv=False, padding=1, name="op"
+                )
 
-        self.use_in_shortcut = self.in_channels != self.out_channels if use_in_shortcut is None else use_in_shortcut
+        self.use_in_shortcut = (
+            self.in_channels != self.out_channels
+            if use_in_shortcut is None
+            else use_in_shortcut
+        )
 
         self.conv_shortcut = None
         if self.use_in_shortcut:
-            self.conv_shortcut = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+            self.conv_shortcut = torch.nn.Conv2d(
+                in_channels, out_channels, kernel_size=1, stride=1, padding=0
+            )
 
     def forward(self, input_tensor, temb):
         hidden_states = input_tensor
 
-        hidden_states = self.norm1(hidden_states)   # hidden_states: torch.Size([1, 128, 64, 64])
+        hidden_states = self.norm1(
+            hidden_states
+        )  # hidden_states: torch.Size([1, 128, 64, 64])
         hidden_states = self.nonlinearity(hidden_states)
 
-        if self.upsample is not None:  # when crossattn, both upsample and downsample is None
+        if (
+            self.upsample is not None
+        ):  # when crossattn, both upsample and downsample is None
             input_tensor = self.upsample(input_tensor)
             hidden_states = self.upsample(hidden_states)
         elif self.downsample is not None:
@@ -276,7 +307,7 @@ class ResnetBlock2D(nn.Module):
         if temb is not None:
             assert self.time_emb_proj is not None
             temb = self.time_emb_proj(self.nonlinearity(temb))[:, :, None, None]
-            hidden_states = hidden_states + temb   # just add together
+            hidden_states = hidden_states + temb  # just add together
 
         hidden_states = self.norm2(hidden_states)
         hidden_states = self.nonlinearity(hidden_states)
@@ -302,7 +333,14 @@ class Upsample2D(nn.Module):
         dims: determines if the signal is 1D, 2D, or 3D. If 3D, then upsampling occurs in the inner-two dimensions.
     """
 
-    def __init__(self, channels, use_conv=False, use_conv_transpose=False, out_channels=None, name="conv"):
+    def __init__(
+        self,
+        channels,
+        use_conv=False,
+        use_conv_transpose=False,
+        out_channels=None,
+        name="conv",
+    ):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
@@ -339,9 +377,13 @@ class Upsample2D(nn.Module):
         # if `output_size` is passed we force the interpolation output
         # size and do not make use of `scale_factor=2`
         if output_size is None:
-            hidden_states = F.interpolate(hidden_states, scale_factor=2.0, mode="nearest")
+            hidden_states = F.interpolate(
+                hidden_states, scale_factor=2.0, mode="nearest"
+            )
         else:
-            hidden_states = F.interpolate(hidden_states, size=output_size, mode="nearest")
+            hidden_states = F.interpolate(
+                hidden_states, size=output_size, mode="nearest"
+            )
 
         # If the input is bfloat16, we cast back to bfloat16
         if dtype == torch.bfloat16:
