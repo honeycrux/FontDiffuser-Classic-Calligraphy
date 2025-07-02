@@ -111,7 +111,7 @@ def main():
     title_data_path = (
         "data_lantingjixu/lantingjixu_title.txt"  # Set the path to the title
     )
-    text_data_path = "data_lantingjixu/lantingjixu_used.txt"  # Set the path to the text
+    text_data_path = "data_lantingjixu/lantingjixu_text.txt"  # Set the path to the text
 
     title_image_file_grid, text_image_file_grid = create_image_file_grid(
         image_folder=image_folder,
