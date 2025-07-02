@@ -1,229 +1,166 @@
-<div align=center>
+# FontDiffuser For Classic Calligraphy: A Study On FontDiffuser's Capability To Generate Calligraphy
 
-# FontDiffuser: One-Shot Font Generation via Denoising Diffusion with Multi-Scale Content Aggregation and Style Contrastive Learning
+This document is provided by the FYP24 project group.
 
-</div>
+## 🌟 Introduction
 
-![FontDiffuser_LOGO](figures/logo.png)  
+This project is derived from "FontDiffuser: One-Shot Font Generation via Denoising Diffusion with Multi-Scale Content Aggregation and Style Contrastive Learning" by Yang et al. Consequently, this page contains numerous references to the README page of the FontDiffuser project by its original authors, which is included in [FontDiffuser.md](./FontDiffuser.md).
 
-<div align=center>
+This project explores ways to modify FontDiffuser to generate Chinese Calligraphy. We approached this problem by changing the model from one-shot to few-shot, allowing the model to infer the style from multiple samples from the target distribution.
 
-[![arXiv preprint](http://img.shields.io/badge/arXiv-2312.12142-b31b1b)](https://arxiv.org/abs/2312.12142) 
-[![Gradio demo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-FontDiffuser-ff7c00)](https://huggingface.co/spaces/yeungchenwa/FontDiffuser-Gradio)
-[![Homepage](https://img.shields.io/badge/Homepage-FontDiffuser-green)](https://yeungchenwa.github.io/fontdiffuser-homepage/)
-[![Code](https://img.shields.io/badge/Code-FontDiffuser-yellow)](https://github.com/yeungchenwa/FontDiffuser)
+This project currently has 5 maintained branches using different proposed methods as described below.
 
-</div>
+One shot methods:
+- `main`: The original FontDiffuser model with our code enhancements.
 
+Few-shot methods:
+- `release/naive-few-shot`: The Naive Few-shot method, which takes an average of the features of style samples to infer encodings of a single style.
+- `release/conv-few-shot`: The Convolution Few-shot method, which uses a combination of linear and convolutional layers on the features of style samples to infer encodings of a single style.
+- `release/attn-few-shot`: The Attention Few-shot method, which uses attention blocks on the features of style samples to infer encodings of single style.
+- `release/style-reconst`: The Style Reconstruction method, which uses attention blocks on the features of content image and style samples to infer one style encoding, and uses the multi-scale content encodings of a random style sample.
 
-<p align="center">
-   <strong><a href="#🔥-model-zoo">🔥 Model Zoo </a></strong> •
-   <strong><a href="#🛠️-installation">🛠️ Installation </a></strong> •
-   <strong><a href="#🏋️-training">🏋️ Training</a></strong> •
-   <strong><a href="#📺-sampling">📺 Sampling</a></strong> •
-   <strong><a href="#📱-run-webui">📱 Run WebUI</a></strong>   
-</p>
+This project contains the following code enhancements to support research:
+- Add the ability to enable validation split and the calculation of validation loss during training.
+- Add the ability to resume training.
+- Add pre-training checks against the font dataset to satisfy training requirements.
+- Add the ability to use multiple images of the same character using the format `<style>+<character>+<sequence_number>.png`.
+- Add an evaluation script to support the evaluation methodology used in this paper.
+- Add auto image padding for non-square character images.
+- Dependency fixes and better compliance to Pylance "standard" type checking.
 
-## 🌟 Highlights
-![Vis_1](figures/vis_1.png)
-![Vis_2](figures/with_instructpix2pix.png)
-+ We propose **FontDiffuser**, which can generate unseen characters and styles and can be extended to cross-lingual generation, such as Chinese to Korean.
-+ **FontDiffuser** excels in generating complex characters and handling large style variations. And it achieves state-of-the-art performance. 
-+ The generated results by **FontDiffuser** can be perfectly used for **InstructPix2Pix** for decoration, as shown in thr above figure.
-+ We release the 💻[Hugging Face Demo](https://huggingface.co/spaces/yeungchenwa/FontDiffuser-Gradio) online! Welcome to Try it Out!  
+## 📅 Timeline
 
-## 📅 News
-- **2024.01.27**: The training of phase 2 is released.
-- **2023.12.20**: Our repository is public! 👏🤗
-- **2023.12.19**: 🔥🎉 The 💻[Hugging Face Demo](https://huggingface.co/spaces/yeungchenwa/FontDiffuser-Gradio) is public! Welcome to try it out!
-- **2023.12.16**: The gradio app demo is released.   
-- **2023.12.10**: Release source code with phase 1 training and sampling.   
-- **2023.12.09**: 🎉🎉 Our [paper](https://arxiv.org/abs/2312.12142) is accepted by AAAI2024.   
-- **Previously**: Our [Recommendations-of-Diffusion-for-Text-Image](https://github.com/yeungchenwa/Recommendations-Diffusion-Text-Image) repo is public, which contains a paper collection of recent diffusion models for text-image generation tasks. Welcome to check it out!
-
-## 🔥 Model Zoo
-| **Model**                                    | **chekcpoint** | **status** |
-|----------------------------------------------|----------------|------------|
-| **FontDiffuser**                              | [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ) | Released  |
-| **SCR**                                      | [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ) | Released     |
-
-## 🚧 TODO List
-- [x] Add phase 1 training and sampling script.
-- [x] Add WebUI demo.
-- [x] Push demo to Hugging Face.
-- [x] Add phase 2 training script and checkpoint.
-- [ ] Add the pre-training of SCR module.
-- [ ] Combined with InstructPix2Pix.
+- **Coming soon**: The data preparation scripts are released.
+- **Coming soon**: The models are released.
+- **March 2025**: Introduced the Style Reconstruction method.
+- **February 2025**: Introduced the Attention Few-shot method.
+- **November 2024**: Introduced the Convolutional Few-shot method.
+- **October 2024**: Introduced the Naive Few-shot method.
 
 ## 🛠️ Installation
-### Prerequisites (Recommended)
-- Linux
-- Python 3.9
-- Pytorch 1.13.1
-- CUDA 11.7
 
-### Environment Setup
-Clone this repo:
-```bash
-git clone https://github.com/yeungchenwa/FontDiffuser.git
-```
+For the installation process, refer to [FontDiffuser#Installation](./FontDiffuser.md#️-installation).
 
-**Step 0**: Download and install Miniconda from the [official website](https://docs.conda.io/en/latest/miniconda.html).
+## 🛠️ Development
 
-**Step 1**: Create a conda environment and activate it.
-```bash
-conda create -n fontdiffuser python=3.9 -y
-conda activate fontdiffuser
-```
+We specifically perform merges in the following way to propagate changes:
+- `main` commits, containing overall improvements, are merged into `release/naive-few-shot`.
+- `release/naive-few-shot` commits, containing overall improvements and adaptations to few-shot generation, are merged into `release/conv-few-shot`, `release/attn-few-shot`, and `release/stlye-reconst`.
 
-**Step 2**: Install related version Pytorch following [here](https://pytorch.org/get-started/previous-versions/).
-```bash
-# Suggested
-pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
-```
+## 🔥 Models
 
-**Step 3**: Install the required packages.
-```bash
-pip install -r requirements.txt
-```
+In model training, we produce two types of models:
+1. **General Calligraphy Model**: The objective is to generate authentic calligraphy given any calligraphy work.
+2. **Single-style Calligraphy Models**: The objective is to generate one style only.
 
-## 🏋️ Training
-### Data Construction
-The training data files tree should be (The data examples are shown in directory `data_examples/train/`):
-```
-├──data_examples
-│   └── train
-│       ├── ContentImage
-│       │   ├── char0.png
-│       │   ├── char1.png
-│       │   ├── char2.png
-│       │   └── ...
-│       └── TargetImage.png
-│           ├── style0
-│           │     ├──style0+char0.png
-│           │     ├──style0+char1.png
-│           │     └── ...
-│           ├── style1
-│           │     ├──style1+char0.png
-│           │     ├──style1+char1.png
-│           │     └── ...
-│           ├── style2
-│           │     ├──style2+char0.png
-│           │     ├──style2+char1.png
-│           │     └── ...
-│           └── ...
-```
-### Training Configuration
-Before running the training script (including the following three modes), you should set the training configuration, such as distributed training, through:
-```bash
-accelerate config
-```
+(Downloads coming soon)
 
-### Training - Pretraining of SCR
-```bash
-Coming Soon ...
-```
+## 🔥 Dataset Preparation Scripts
 
-### Training - Phase 1
-```bash
-sh train_phase_1.sh
-```
-- `data_root`: The data root, as `./data_examples`
-- `output_dir`: The training output logs and checkpoints saving directory.
-- `resolution`: The resolution of the UNet in our diffusion model.
-- `style_image_size`: The resolution of the style image, can be different with `resolution`.
-- `content_image_size`: The resolution of the content image, should be the same as the `resolution`.
-- `channel_attn`: Whether to use the channel attention in the MCA block.
-- `train_batch_size`: The batch size in the training.
-- `max_train_steps`: The maximum of the training steps.
-- `learning_rate`: The learning rate when training.
-- `ckpt_interval`: The checkpoint saving interval when training.
-- `drop_prob`: The classifier-free guidance training probability.
+(Coming soon)
 
-### Training - Phase 2
-After the phase 2 training, you should put the trained checkpoint files (`unet.pth`, `content_encoder.pth`, and `style_encoder.pth`) to the directory `phase_1_ckpt`. During phase 2, these parameters will be resumed.
-```bash
-sh train_phase_2.sh
-```
-- `training_phase`: The training phase number.
-- `last_phase_ckpt_dir`: The model checkpoints saving directory after the last phase's training.
-- `scr_ckpt_path`: The ckpt path of pre-trained SCR module. You can download it from above 🔥Model Zoo.
-- `sc_coefficient`: The coefficient of style contrastive loss for supervision.
-- `num_neg`: The number of negative samples, default to be `16`.
+## 🔥 The Lantingji Xu Dataset
+
+The Lantingji Xu dataset we used is available in the `data_lantingjixu` folder, with the following content:
+- `lantingjixu_title.txt`: The title of Lantingji Xu.
+- `lantingjixu_authentic.txt`: The authentic transcription of Lantingji Xu.
+- `lantingjixu_text.txt`: The transcription of Lantingji Xu with obscure characters substituted with more commonly-used Chinese characters. We use this in place of the authentic version.
+- `all`: The whole Lantingji Xu dataset, based on `lantingjixu_text.txt`, placed under the `ContentImage`/`TargetImage` subdirectories according to the training data file tree standard.
+- `train`: The train set, subset of the Lantingji Xu dataset.
+    - `lantingjixu_train.txt`: The characters in the train set, which is an unordered subset of `lantingjixu_text.txt`.
+- `eval`: The eval set, subset of the Lantingji Xu dataset.
+    - `lantingjixu_eval.txt`: The characters in the eval set, which is an unordered subset of `lantingjixu_text.txt`.
+- `legacy`: Files not used by us but are used by FYP23 project group. These files are kept for reference.
+    - `strokelist.txt`: [The Diff-Font stroke list](https://github.com/HensonChen/Diff-font/blob/main/traditional_chinese_stroke.txt) consisting of stroke information of 3000 Chinese characters.
+    - `wordlist.txt`: A list of 3000 words appearing in the Diff-Font stroke list used by the FYP23 project group. There are 169 unique words in Lantingji Xu that appear in this list. Subsequently, the 169 unique words are chosen to be the train set. The other 40 words are chosen to be the eval set. We inherited their choice of train-eval split (Minor differences: We switched to `lantingjixu_text.txt` instead of the authentic version that they use. As a result, our split by character count is actually 169-36 instead of 169-40. Additionally, they strictly use unique characters in training, but we allow images of the same characters. As a result, our split by image count is 255-50.)
+    - `lacklist.txt`: A list of 40 words appearing in`lantingjixu_authentic.txt` but not in `wordlist.txt`.
+    - `lacklist_strokes.txt`: Stroke information of the 40 words from `lacklist.txt`.
 
 ## 📺 Sampling
-### Step 1 => Prepare the checkpoint   
-Option (1) Download the checkpoint following [GoogleDrive](https://drive.google.com/drive/folders/12hfuZ9MQvXqcteNuz7JQ2B_mUcTr-5jZ?usp=drive_link) / [BaiduYun:gexg](https://pan.baidu.com/s/19t1B7le8x8L2yFGaOvyyBQ), then put the `ckpt` to the root directory, including the files `unet.pth`, `content_encoder.pth`, and `style_encoder.pth`.  
-Option (2) Put your re-training checkpoint folder `ckpt` to the root directory, including the files `unet.pth`, `content_encoder.pth`, and `style_encoder.pth`.
 
-### Step 2 => Run the script  
-**(1) Sampling image from content image and reference image.**  
-```bash
-sh script/sample_content_image.sh
-```
-- `ckpt_dir`: The model checkpoints saving directory.  
-- `content_image_path`: The content/source image path.
-- `style_image_path`: The style/reference image path.
-- `save_image`: set `True` if saving as images.
-- `save_image_dir`: The image saving directory, the saving files including an `out_single.png` and an `out_with_cs.png`.
-- `device`: The sampling device, recommended GPU acceleration.
-- `guidance_scale`: The classifier-free sampling guidance scale.
-- `num_inference_steps`: The inference step by DPM-Solver++.
+For preparation of model checkpoints and usage of shell scripts, refer to [FontDiffuser#Sampling](./FontDiffuser.md#-sampling), except for the changes listed in the next section.
 
-**(2) Sampling image from content character.**  
-**Note** Maybe you need a ttf file that contains numerous Chinese characters, you can download it from [BaiduYun:wrth](https://pan.baidu.com/s/1LhcXG4tPcso9BLaUzU6KtQ).
-```bash
-sh script/sample_content_character.sh
-```
-- `character_input`: If set `True`, use character string as content/source input.
-- `content_character`: The content/source content character string.
-- The other parameters are the same as the above option (1).
+In addition to the shell scripts, we provide more python scripts to trigger the generate image process. The configurations are located at the start of the main function.
 
-## 📱 Run WebUI
-### (1) Sampling by FontDiffuser
+**(1) Generate images using text from a text file.**
 ```bash
-gradio gradio_app.py
-```
-**Example**:   
-<p align="center">
-<img src="figures/gradio_fontdiffuser_new.png" width="80%" height="auto">
-</p>
-
-### (2) Sampling by FontDiffuser and Rendering by InstructPix2Pix
-```bash
-Coming Soon ...
+python lantingjixu_sample.py
 ```
 
-## 🌄 Gallery
-### Characters of hard level of complexity
-![vis_hard](figures/vis_hard.png)
+**(2) Print generated images onto a grid as if writing on a paper.**
+```bash
+python lantingjixu_grid.py
+```
 
-### Characters of medium level of complexity
-![vis_medium](figures/vis_medium.png)
+### Parameters and Added Features
 
-### Characters of easy level of complexity
-![vis_easy](figures/vis_easy.png)
+All sampling parameters can be found in `configs/fontdiffuser.py` (common parameters for training and sampling) and `sample.py > arg_parse()` (specific parameters for sampling).
 
-### Cross-Lingual Generation (Chinese to Korean)
-![vis_korean](figures/vis_korean.png)
+**Changed Parameters**
+
+- ~~**Original**: `style_image_path`: The style/reference image path.~~
+- **New**: `style_image_path`: For one-shot methods, the style/reference image path. For few-shot methods, the directory with style/reference images.
+
+**New Parameters**
+
+We did not add any new sampling parameter.
+
+## 📐 Evaluation
+
+We provide python scripts for evaluating a model with FID, SSIM, LPIPS, and L1. The configurations are located at the start of the main function.
+
+**(1) Run the whole evaluation process**
+```bash
+python lantingjixu_eval.py
+```
+
+This evaluation script runs the whole process of our evaluation method. A directory D of ground truth images of a style is used, e.g. the Lantingji Xu characters. Let's say we want to run R rounds, the directory D has C characters, and the model uses K style images (reference images) for generation. The script detects and loads the specified test profile used for evaluation. If not exist, the script generates one. A test profile is a directory with R test files named `test_INDEX.yaml` where INDEX is a number starting at 0. Each test file consists of a seed (randomly chosen) and a list of C test cases, one for each character in D. Each test case then has 1 character image (the target image) and K style images (randomly sampled). The content image of a test case is generated from the character extracted from target image name. The script will then run the evaluation process according to the test profile, reporting the round performances, their mean and SD, and overall performance in the output `eval_results.yaml`. By using the same test profile, the same setting can be used to evaluate every model.
+
+**(2) Evaluate generated images with ground truth images by specifying folders**
+```bash
+python lantingjixu_eval_by_folder.py
+```
+
+This is an older method for evaluation by specifying folders to generated images and ground truth images. You would first generate the images using `lantingjixu_sample.py`, then evaluate using `lantingjixu_eval_by_folder.py`.
+
+## 🏋️ Training
+
+Our work is focused on finetuning the original FontDiffuser model from FontDiffuser authors, completed with Phase 1 and 2 training. The training we add assumes phase numbers starting from 3.
+
+For Phase 1 training, Phase 2 training, and data construction, refer to [FontDiffuser#Training](./FontDiffuser.md#️-training), except for the changes listed in the next section.
+
+### Parameters and Added Features
+
+All training parameters can be found in `configs/fontdiffuser.py` (common parameters for training and sampling).
+
+**Changed Paramters**
+
+- ~~**Original**: `phase_2`: Tag to phase 2 training.~~
+- **New**: `training_phase`: The training phase number.
+- ~~**Original**: `phase_1_ckpt_dir`: The model checkpoints saving directory after phase 1 training.~~
+- **New**: `last_phase_ckpt_dir`: The model checkpoints saving directory after the last phase's training.
+
+**New Paramters**
+
+New parameters to support validation:
+- `use_validation`: Whether to run validation during training. If true, it will compute validation losses with the following settings.
+- `validation_factor`: The factor of validation data (1/factor of data is split for validation).
+- `validation_batch_size`: Batch size (per device) for the validation dataloader.
+- `validation_interval`: The interval for validation.
+
+New parameters to support resume training:
+- `resume_training`: Whether this training is a resumption of a training in the past. If true, the global step value and model/optimizr/scheduler states will inherit from saved values in `whole_model.pth` retrieved from `resume_ckpt_dir`.
+- `resume_ckpt_dir`: The directory of the model checkpoints to resume training.
+
+New parameters to few-shot generation (not available in `main`, which is a one-shot method):
+- `k_shot`: The maximum number of style images used.
+
+## 📱 Web UI
+
+The FontDiffuser authors offer a Web UI for demonstration of their work.
+
+However, it has not been adapted for the few-shot methods, so it only works on one-shot methods (`main`).
 
 ## 💙 Acknowledgement
-- [diffusers](https://github.com/huggingface/diffusers)
-
-## Copyright
-- This repository can only be used for non-commercial research purposes.
-- For commercial use, please contact Prof. Lianwen Jin (eelwjin@scut.edu.cn).
-- Copyright 2023, [Deep Learning and Vision Computing Lab (DLVC-Lab)](http://www.dlvc-lab.net), South China University of Technology. 
-
-## Citation
-```
-@inproceedings{yang2024fontdiffuser,
-  title={FontDiffuser: One-Shot Font Generation via Denoising Diffusion with Multi-Scale Content Aggregation and Style Contrastive Learning},
-  author={Yang, Zhenhua and Peng, Dezhi and Kong, Yuxin and Zhang, Yuyi and Yao, Cong and Jin, Lianwen},
-  booktitle={Proceedings of the AAAI conference on artificial intelligence},
-  year={2024}
-}
-```
-
-## ⭐ Star Rising
-[![Star Rising](https://api.star-history.com/svg?repos=yeungchenwa/FontDiffuser&type=Timeline)](https://star-history.com/#yeungchenwa/FontDiffuser&Timeline)
+- [FontDiffuser](https://github.com/yeungchenwa/FontDiffuser)
+- [Diffusers](https://github.com/huggingface/diffusers)
