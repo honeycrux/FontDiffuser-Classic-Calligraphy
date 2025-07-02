@@ -233,13 +233,15 @@ def get_parser():
     )
     ## resume training
     parser.add_argument(
-        "--resume_training", action="store_true", help="Whether to resume training."
+        "--resume_training",
+        action="store_true",
+        help="Whether this training is a resumption of a training in the past.",
     )
     parser.add_argument(
         "--resume_ckpt_dir",
         type=str,
         default=None,
-        help="The directory of the ckpt to resume training.",
+        help="The directory of the ckpt to resume training (requires the `whole_model.pth` file).",
     )
 
     # Sampling

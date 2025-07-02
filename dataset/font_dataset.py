@@ -1,3 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+# This script defines the dataset for training of FontDiffuser.
+
 from pathlib import Path
 import random
 from PIL import Image
