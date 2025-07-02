@@ -195,7 +195,7 @@ def main():
     use_few_shot = True
 
     # Dataset location
-    dataset_dir = "data_lantingjixu/train/TargetImage/lan"
+    dataset_dir = "data_lantingjixu/eval/TargetImage/lan"
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
@@ -208,7 +208,7 @@ def main():
     expect_existing_profile = True
 
     # Results location
-    results_output_dir = "outputs/eval_style_reconst"
+    results_output_dir = "outputs/eval"
 
     ### Part 1: Load/Generate the test profile ###
 

@@ -1,3 +1,6 @@
+# This script is provided by authors of FontDiffuser.
+# This script defines the collate function for batching data in FontDiffuser.
+
 import torch
 
 
