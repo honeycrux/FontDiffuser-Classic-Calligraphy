@@ -179,7 +179,6 @@ def image_process(
     return content_image, style_images, content_image_pil, style_images_pil
 
 
-
 def load_fontdiffuser_pipeline(args):
     # Load the model state_dict
     unet = build_unet(args=args)
