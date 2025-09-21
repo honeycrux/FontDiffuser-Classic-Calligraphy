@@ -1,10 +1,10 @@
-# FontDiffuser For Classic Calligraphy: A Study On FontDiffuser's Capability To Generate Calligraphy
+# FontDiffuser Classic Calligraphy: A Study On FontDiffuser's Capability To Generate Calligraphy
 
 This document is provided by the FYP24 project group.
 
 ## 🌟 Introduction
 
-This project is derived from "FontDiffuser: One-Shot Font Generation via Denoising Diffusion with Multi-Scale Content Aggregation and Style Contrastive Learning" by Yang et al. Consequently, this page contains numerous references to the README page of the FontDiffuser project by its original authors, which is included in [FontDiffuser.md](./FontDiffuser.md).
+This project is derived from the work "FontDiffuser: One-Shot Font Generation via Denoising Diffusion with Multi-Scale Content Aggregation and Style Contrastive Learning" by Yang et al. ([arXiv](https://arxiv.org/abs/2312.12142)) ([GitHub](https://github.com/yeungchenwa/FontDiffuser)). Consequently, this page contains numerous references to the README page of the FontDiffuser project by its original authors, which is included in [FontDiffuser.md](./FontDiffuser.md).
 
 This project explores ways to modify FontDiffuser to generate Chinese Calligraphy. We approached this problem by changing the model from one-shot to few-shot, allowing the model to infer the style from multiple samples from the target distribution.
 
@@ -15,7 +15,7 @@ One shot methods:
 
 Few-shot methods:
 - `release/naive-few-shot`: The Naive Few-shot method, which takes an average of the features of style samples to infer encodings of a single style.
-- `release/conv-few-shot`: The Convolution Few-shot method, which uses a combination of linear and convolutional layers on the features of style samples to infer encodings of a single style.
+- `release/conv-few-shot`: The Convolution Few-shot method, which uses a combination of linear and convolutional layers on the features of style samples to infer encodings of a single style. There are multiple types of implementation that can be swapped in `k_feature_extractor.py`.
 - `release/attn-few-shot`: The Attention Few-shot method, which uses attention blocks on the features of style samples to infer encodings of single style.
 - `release/style-reconst`: The Style Reconstruction method, which uses attention blocks on the features of content image and style samples to infer one style encoding, and uses the multi-scale content encodings of a random style sample.
 
@@ -30,8 +30,8 @@ This project contains the following code enhancements to support research:
 
 ## 📅 Timeline
 
-- **Coming soon**: The data preparation scripts are released.
 - **Coming soon**: The models are released.
+- **August 2025**: The data preparation scripts are released.
 - **March 2025**: Introduced the Style Reconstruction method.
 - **February 2025**: Introduced the Attention Few-shot method.
 - **November 2024**: Introduced the Convolutional Few-shot method.
@@ -57,24 +57,19 @@ In model training, we produce two types of models:
 
 ## 🔥 Dataset Preparation Scripts
 
-(Coming soon)
+See https://github.com/honeycrux/Font-Datasets-fyp24.
 
 ## 🔥 The Lantingji Xu Dataset
 
 The Lantingji Xu dataset we used is available in the `data_lantingjixu` folder, with the following content:
 - `lantingjixu_title.txt`: The title of Lantingji Xu.
 - `lantingjixu_authentic.txt`: The authentic transcription of Lantingji Xu.
-- `lantingjixu_text.txt`: The transcription of Lantingji Xu with obscure characters substituted with more commonly-used Chinese characters. We use this in place of the authentic version.
-- `all`: The whole Lantingji Xu dataset, based on `lantingjixu_text.txt`, placed under the `ContentImage`/`TargetImage` subdirectories according to the training data file tree standard.
-- `train`: The train set, subset of the Lantingji Xu dataset.
-    - `lantingjixu_train.txt`: The characters in the train set, which is an unordered subset of `lantingjixu_text.txt`.
-- `eval`: The eval set, subset of the Lantingji Xu dataset.
-    - `lantingjixu_eval.txt`: The characters in the eval set, which is an unordered subset of `lantingjixu_text.txt`.
-- `legacy`: Files not used by us but are used by FYP23 project group. These files are kept for reference.
-    - `strokelist.txt`: [The Diff-Font stroke list](https://github.com/HensonChen/Diff-font/blob/main/traditional_chinese_stroke.txt) consisting of stroke information of 3000 Chinese characters.
-    - `wordlist.txt`: A list of 3000 words appearing in the Diff-Font stroke list used by the FYP23 project group. There are 169 unique words in Lantingji Xu that appear in this list. Subsequently, the 169 unique words are chosen to be the train set. The other 40 words are chosen to be the eval set. We inherited their choice of train-eval split (Minor differences: We switched to `lantingjixu_text.txt` instead of the authentic version that they use. As a result, our split by character count is actually 169-36 instead of 169-40. Additionally, they strictly use unique characters in training, but we allow images of the same characters. As a result, our split by image count is 255-50.)
-    - `lacklist.txt`: A list of 40 words appearing in`lantingjixu_authentic.txt` but not in `wordlist.txt`.
-    - `lacklist_strokes.txt`: Stroke information of the 40 words from `lacklist.txt`.
+- `lantingjixu_text.txt`: The transcription of Lantingji Xu with obscure characters substituted with more commonly-used Chinese characters. The FYP24 group uses this in place of the authentic version used by the FYP23 group.
+- `all`: The whole Lantingji Xu dataset, based on `lantingjixu_text.txt`, placed under the `ContentImage`/`TargetImage` subdirectories according to the training data file tree used by FYP24 models. In the training context where the whole LTJX dataset is unseen, the full dataset is used for testing by the FYP24 group.
+- `train`: The train set, subset of the full dataset. In the training context where the LTJX dataset is used for finetuning, the train/test split is used.
+    - `lantingjixu_train.txt`: A list of 169 words in the train set, which is an unordered subset of `lantingjixu_text.txt`.
+- `test`: The test set, subset of the full dataset.
+    - `lantingjixu_test.txt`: A list of 36 words in the test set, which is an unordered subset of `lantingjixu_text.txt`.
 
 ## 📺 Sampling
 
@@ -125,7 +120,7 @@ This is an older method for evaluation by specifying folders to generated images
 
 ## 🏋️ Training
 
-Our work is focused on finetuning the original FontDiffuser model from FontDiffuser authors, completed with Phase 1 and 2 training. The training we add assumes phase numbers starting from 3.
+Our work is focused on finetuning the original FontDiffuser model from FontDiffuser authors, completed with Phase 1 and 2 training. The training we add starts with Phase 3. Scripts in the `scripts/` directory contain the configuration we used for the training we added.
 
 For Phase 1 training, Phase 2 training, and data construction, refer to [FontDiffuser#Training](./FontDiffuser.md#️-training), except for the changes listed in the next section.
 
@@ -155,9 +150,31 @@ New parameters to support resume training:
 New parameters to few-shot generation (not available in `main`, which is a one-shot method):
 - `k_shot`: The maximum number of style images used.
 
+### Data Construction Changes
+Our file structure for training data augments the original file structure by allowing training on multiple images of the same character through the use of sequence identifiers, as shown below. A sequence identifier is a string that follows a `+` and is used to uniquely identify an image within a directory.
+```
+├──data_examples
+│   └── train
+│       ├── ContentImage
+│       │   ├── char0.png
+│       │   ├── char1.png
+│       │   └── ...
+│       └── TargetImage
+│           ├── style0
+│           │     ├──style0+char0.png    <-- Without sequence identifier
+│           │     ├──style0+char0+1.png  <-- With sequence identifier
+│           │     ├──style0+char0+2.png
+│           │     └── ...
+│           ├── style1
+│           │     ├──style1+char0.png
+│           │     ├──style1+char1.png
+│           │     └── ...
+│           └── ...
+```
+
 ## 📱 Web UI
 
-The FontDiffuser authors offer a Web UI for demonstration of their work.
+The FontDiffuser authors offer a Web UI for demonstration of their work. For usage, refer to [FontDiffuser#Run Web UI](./FontDiffuser.md#-run-webui)
 
 However, it has not been adapted for the few-shot methods, so it only works on one-shot methods (`main`).
 
