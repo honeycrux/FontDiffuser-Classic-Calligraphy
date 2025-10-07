@@ -1,6 +1,6 @@
-accelerate launch train.py \
+accelerate launch train_sr_only.py \
     --seed=123 \
-    --experience_name="FontDiffuser_training_phase_3" \
+    --experience_name="FontDiffuser_training_phase_3_sr_only" \
     --data_root="data" \
     --output_dir="outputs/FontDiffuser" \
     --report_to="tensorboard" \
@@ -9,18 +9,8 @@ accelerate launch train.py \
     --resolution=96 \
     --style_image_size=96 \
     --content_image_size=96 \
-    --content_encoder_downsample_size=3 \
-    --channel_attn=True \
-    --content_start_channel=64 \
     --style_start_channel=64 \
     --train_batch_size=2 \
-    --use_validation \
-    --validation_factor=1000 \
-    --validation_batch_size=3 \
-    --validation_interval=10 \
-    --perceptual_coefficient=0.01 \
-    --offset_coefficient=0.5 \
-    --style_rec_coefficient=0.1 \
     --max_train_steps=20000 \
     --ckpt_interval=1000 \
     --gradient_accumulation_steps=2 \
@@ -28,6 +18,5 @@ accelerate launch train.py \
     --learning_rate=1e-5 \
     --lr_scheduler="constant" \
     --lr_warmup_steps=1000 \
-    --drop_prob=0.1 \
     --mixed_precision="no"
     
