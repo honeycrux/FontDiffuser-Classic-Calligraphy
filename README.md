@@ -30,7 +30,6 @@ This project contains the following code enhancements to support research:
 
 ## 📅 Timeline
 
-- **Coming soon**: The models are released.
 - **August 2025**: The data preparation scripts are released.
 - **March 2025**: Introduced the Style Reconstruction method.
 - **February 2025**: Introduced the Attention Few-shot method.
@@ -49,11 +48,46 @@ We specifically perform merges in the following way to propagate changes:
 
 ## 🔥 Models
 
-In model training, we produce two types of models:
-1. **General Calligraphy Model**: The objective is to generate authentic calligraphy given any calligraphy work.
-2. **Single-style Calligraphy Models**: The objective is to generate one style only.
+Different branches contain the code to train and run different models. Each model has its own modification for experimentation. One may switch to a specific branch to use a specific model.
 
-(Downloads coming soon)
+| Model | Branch |
+| ----- | ------ |
+| Original FontDiffuser Model (OFD) | `main` |
+| Naive Few Shot (NFS) | `release/naive-few-shot` |
+| Convolution Few Shot (CFS) | `release/conv-few-shot` (see Choosing Conv Models section) |
+| Fully-connected Few Shot (FCFS) | `release/conv-few-shot` (see Choosing Conv Models section) |
+| Hybrid Few Shot (HFS) | `release/conv-few-shot` (see Choosing Conv Models section) |
+| Attention Few Shot (AFS) | `release/attn-few-shot` |
+| Style Reconstruction (SR) | `release/style-reconst` |
+
+Except for OFD and NFS, we provide `scripts/train-phase-3.sh` for additional training using OFD weights (resulting weights by the authors of FontDiffuser). OFS and NFS directly use OFD weights and do not have a phase-3 training script.
+
+For SR, we provide `scripts/train-phase-3-sr-only.sh` instead to indicate that we only train the StyleReconstructor unit without training the other parts. We only tried this technique with the SR model.
+
+Except for OFD, the models can take multiple style images. The number of style images accepted can be set with `k_shot` and/or `max_k`. Check configurations to find available config arguments to a specific model:
+
+- `configs/fontdiffuser.py` (common parameters for training and sampling)
+- `sample.py > arg_parse()` (specific parameters for sampling)
+
+The files `lantingjixu_sample.py` and `scripts/train-phase-3.sh` (if provided) can be used as example configurations to training/sampling.
+
+### Choosing Conv Models
+
+A few models use the `release/conv-few-shot` branch, each with different layers. You can choose the model used by changing the variable `k_feature_extractor.py` > `class KFeatureExtractor` > `unit_used` to one of the following classes:
+
+| Model | Class To Use |
+| ----- | ------------ |
+| Convolution Few Shot (CFS) | `KFeatureExtractorUnit_CFS` |
+| Fully-connected Few Shot (FCFS) | `KFeatureExtractorUnit_FCFS` |
+| Hybrid Few Shot (HFS) | `KFeatureExtractorUnit_HFS` |
+
+`unit_used` is originally set to `KFeatureExtractorUnit_CFS`.
+
+### Model Objectives
+
+We have two objective paths that we try to use our models to achieve:
+1. **General Calligraphy Model**: The objective is to generate authentic calligraphy given any calligraphy work.
+2. **Single-style Calligraphy Model**: The objective is to generate one style only.
 
 ## 🔥 Dataset Preparation Scripts
 
@@ -89,7 +123,7 @@ python lantingjixu_grid.py
 
 ### Parameters and Added Features
 
-All sampling parameters can be found in `configs/fontdiffuser.py` (common parameters for training and sampling) and `sample.py > arg_parse()` (specific parameters for sampling).
+All sampling parameters can be found in `configs/fontdiffuser.py` (common parameters for training and sampling) and `sample.py > arg_parse()` (parameters for sampling only).
 
 **Changed Parameters**
 
@@ -137,11 +171,13 @@ All training parameters can be found in `configs/fontdiffuser.py` (common parame
 
 **New Paramters**
 
-New parameters to support validation:
+New parameters to support in-sample validation:
 - `use_validation`: Whether to run validation during training. If true, it will compute validation losses with the following settings.
 - `validation_factor`: The factor of validation data (1/factor of data is split for validation).
 - `validation_batch_size`: Batch size (per device) for the validation dataloader.
 - `validation_interval`: The interval for validation.
+
+Validation is only useful to see whether in-sample overfitting occurs. This validation does not affect training result and is seldom useful in practice. Also, validation can consume a long time for large datasets. You may disable validation by removing the `use_validation` parameter (or lower the validation factor if you prefer).
 
 New parameters to support resume training:
 - `resume_training`: Whether this training is a resumption of a training in the past. If true, the global step value and model/optimizr/scheduler states will inherit from saved values in `whole_model.pth` retrieved from `resume_ckpt_dir`.
