@@ -46,6 +46,8 @@ We specifically perform merges in the following way to propagate changes:
 - `main` commits, containing overall improvements, are merged into `release/naive-few-shot`.
 - `release/naive-few-shot` commits, containing overall improvements and adaptations to few-shot generation, are merged into `release/conv-few-shot`, `release/attn-few-shot`, and `release/stlye-reconst`.
 
+All branches contain the same readme documents but different model implementations.
+
 ## 🔥 Models
 
 Different branches contain the code to train and run different models. Each model has its own modification for experimentation. One may switch to a specific branch to use a specific model.

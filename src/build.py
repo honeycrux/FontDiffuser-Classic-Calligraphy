@@ -2,7 +2,7 @@
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-from src import SCR, ContentEncoder, StyleEncoder, UNet
+from .modules import SCR, ContentEncoder, StyleEncoder, UNet
 
 
 def build_unet(args):
