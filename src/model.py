@@ -1,12 +1,8 @@
 # This script is provided by authors of FontDiffuser.
 
 import torch
-
+from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
-from diffusers.configuration_utils import (
-    ConfigMixin,
-    register_to_config,
-)
 
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):

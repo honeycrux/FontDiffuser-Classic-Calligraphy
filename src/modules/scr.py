@@ -1,12 +1,11 @@
 # This script is provided by authors of FontDiffuser.
 
-import torch
-
-import torch.nn as nn
-import src.modules.scr_modules as SCRModules
-
-from info_nce import InfoNCE
 import kornia.augmentation as K
+import torch
+import torch.nn as nn
+from info_nce import InfoNCE
+
+import src.modules.scr_modules as SCRModules
 
 
 class SCR(nn.Module):

@@ -4,11 +4,11 @@
 # The LantingjiXu text must first be generated using lantingjixu_sample.py.
 # The image folder, save path, line size, title data path, and text data path can be configured in the main function.
 
-import matplotlib.pyplot as plt
 import os
-from PIL import Image
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
+from PIL import Image
 
 
 def load_text(file_path: str):

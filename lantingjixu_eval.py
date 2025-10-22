@@ -2,22 +2,18 @@
 # This is the driver code to run whole evaluation process on the LantingjiXu dataset.
 # It generates a test profile and runs sampling, then calculates the FID, SSIM, LPIPS, and L1 metrics.
 
-import random
 import os
+import random
 import time
-from typing import Any, Optional
-import yaml
 from pathlib import Path
+from typing import Any, Optional
 
-from PIL import Image
 import torch
 import torchvision.transforms as TF
+import yaml
+from PIL import Image
 
-from sample import (
-    arg_parse,
-    sampling,
-    load_fontdiffuser_pipeline,
-)
+from sample import arg_parse, load_fontdiffuser_pipeline, sampling
 from src.metrics.font_metrics import FontMetrics
 
 
@@ -47,7 +43,7 @@ def run_fontdiffuser_demo_mode(
     style_images: list[Image.Image],
     ttf_path: str,
     use_few_shot: bool,
-    sampling_step: int = 20,
+    num_inference_steps: int = 20,
     batch_size: int = 1,
     seed: Optional[int] = None,
 ):
@@ -58,7 +54,7 @@ def run_fontdiffuser_demo_mode(
 
     args.character_input = False if content_image is not None else True
     args.content_character = character
-    args.sampling_step = sampling_step
+    args.num_inference_steps = num_inference_steps
     args.ttf_path = ttf_path
     args.batch_size = batch_size
 
@@ -195,7 +191,7 @@ def main():
     use_few_shot = True
 
     # Dataset location
-    dataset_dir = "data_lantingjixu/eval/TargetImage/lan"
+    dataset_dir = "data_lantingjixu/test/TargetImage/lan"
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.

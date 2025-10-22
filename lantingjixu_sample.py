@@ -3,17 +3,15 @@
 # The ckpt dir, ttf path, save image dir, style image dir, seed, title data path, and text data path can be configured in the main function.
 # For example, to generate the entire lantingjixu text, use the whole lantingjixu text (data_lantingjixu/lantingjixu_text.txt) as the text data path.
 
-import random
-from typing import Optional
-from sample import (
-    arg_parse,
-    sampling,
-    load_fontdiffuser_pipeline,
-)
 import os
+import random
 import time
-import torch
 from collections import defaultdict
+from typing import Optional
+
+import torch
+
+from sample import arg_parse, load_fontdiffuser_pipeline, sampling
 
 
 def load_text(file_path: str):
@@ -33,7 +31,6 @@ def get_file_names(characters: str):
             file_names.append(f"{character}+{seq}")
         word_count[character] += 1
     return file_names
-
 
 
 def load_essential_args(
@@ -62,7 +59,7 @@ def run_fontdiffuser(
     style_image_dir: str,
     save_image_dir: str,
     ttf_path: str,
-    sampling_step: int = 20,
+    num_inference_steps: int = 20,
     batch_size: int = 1,
     seed: Optional[int] = None,
 ):
@@ -78,7 +75,7 @@ def run_fontdiffuser(
     args.style_image_path = style_image_dir
     args.save_image_dir = save_image_dir
     args.ttf_path = ttf_path
-    args.sampling_step = sampling_step
+    args.num_inference_steps = num_inference_steps
     args.batch_size = batch_size
 
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
