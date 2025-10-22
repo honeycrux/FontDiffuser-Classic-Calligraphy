@@ -2,41 +2,39 @@
 # This script is the training process of FontDiffuser.
 # For usage, also refer to scripts/train_phase_*.sh.
 
-import os
-import math
-import time
 import logging
-from tqdm.auto import tqdm
+import math
+import os
+import time
 
 import torch
-import torch.utils.data
 import torch.nn.functional as F
-
+import torch.utils.data
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers.optimization import get_scheduler
+from tqdm.auto import tqdm
 
-from dataset.font_dataset import FontDataset
-from dataset.collate_fn import CollateFN
 from configs.fontdiffuser import get_parser
+from dataset.collate_fn import CollateFN
+from dataset.font_dataset import FontDataset
 from src import (
-    FontDiffuserModel,
     ContentPerceptualLoss,
-    build_unet,
-    build_style_encoder,
+    FontDiffuserModel,
     build_content_encoder,
     build_ddpm_scheduler,
     build_scr,
+    build_style_encoder,
+    build_unet,
 )
 from utils import (
+    get_transform_function,
+    normalize_mean_std,
+    reNormalize_img,
     save_args_to_yaml,
     x0_from_epsilon,
-    reNormalize_img,
-    normalize_mean_std,
-    get_transform_function,
 )
-
 
 logger = get_logger(__name__)
 

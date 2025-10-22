@@ -8,6 +8,7 @@ from typing import Optional
 import gradio as gr
 import torch
 from PIL import Image
+
 from sample import arg_parse, load_fontdiffuser_pipeline, sampling
 
 

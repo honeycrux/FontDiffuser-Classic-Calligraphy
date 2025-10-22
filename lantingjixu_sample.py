@@ -10,6 +10,7 @@ from collections import defaultdict
 from typing import Optional
 
 import torch
+
 from sample import arg_parse, load_fontdiffuser_pipeline, sampling
 
 

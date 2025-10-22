@@ -3,11 +3,7 @@
 import torch
 from PIL import Image
 
-from .dpm_solver_pytorch import (
-    NoiseScheduleVP,
-    model_wrapper,
-    DPM_Solver,
-)
+from .dpm_solver_pytorch import DPM_Solver, NoiseScheduleVP, model_wrapper
 
 
 class FontDiffuserDPMPipeline:
