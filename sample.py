@@ -3,34 +3,34 @@
 # For usage, also refer to lantingjixu_sample.py or scripts/sample_content_*.sh.
 
 import os
-import cv2
-import time
 import random
-import numpy as np
-from PIL import Image
+import time
 from pathlib import Path
 from typing import Union
 
+import cv2
+import numpy as np
 import torch
 from accelerate.utils import set_seed
+from PIL import Image
 
 from src import (
     FontDiffuserDPMPipeline,
     FontDiffuserModelDPM,
-    build_ddpm_scheduler,
-    build_unet,
     build_content_encoder,
-    build_style_encoder,
+    build_ddpm_scheduler,
     build_k_feature_extractor,
+    build_style_encoder,
+    build_unet,
 )
 from utils import (
-    ttf2im,
-    load_ttf,
-    is_char_in_font,
-    save_args_to_yaml,
-    save_single_image,
-    save_image_with_content_style,
     get_transform_function,
+    is_char_in_font,
+    load_ttf,
+    save_args_to_yaml,
+    save_image_with_content_style,
+    save_single_image,
+    ttf2im,
 )
 
 
@@ -219,14 +219,15 @@ def load_fontdiffuser_pipeline(args):
 
 
 def sampling(args, pipe, content_image=None, style_images=None):
-    if not args.demo:
+    if args.save_image:
         os.makedirs(args.save_image_dir, exist_ok=True)
+
         # saving sampling config
         save_args_to_yaml(
             args=args, output_file=f"{args.save_image_dir}/sampling_config.yaml"
         )
 
-    if args.seed:
+    if type(args.seed) is int:
         set_seed(seed=args.seed)
 
     image_process_output = image_process(
@@ -266,10 +267,15 @@ def sampling(args, pipe, content_image=None, style_images=None):
 
         if args.save_image:
             print(f"Saving the image ......")
-            save_single_image(save_dir=args.save_image_dir, image=images[0])
+            save_single_image(
+                save_dir=args.save_image_dir,
+                image=images[0],
+                character=args.content_character,
+            )
             save_image_with_content_style(
                 save_dir=args.save_image_dir,
                 image=images[0],
+                character=args.content_character,
                 content_image_pil=content_image_pil,
                 content_image_path=None,
                 style_image_path=args.style_image_path,

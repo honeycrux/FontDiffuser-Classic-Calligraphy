@@ -100,7 +100,7 @@ The training data files tree should be (The data examples are shown in directory
 │       │   ├── char1.png
 │       │   ├── char2.png
 │       │   └── ...
-│       └── TargetImage.png
+│       └── TargetImage
 │           ├── style0
 │           │     ├──style0+char0.png
 │           │     ├──style0+char1.png
@@ -115,6 +115,7 @@ The training data files tree should be (The data examples are shown in directory
 │           │     └── ...
 │           └── ...
 ```
+
 ### Training Configuration
 Before running the training script (including the following three modes), you should set the training configuration, such as distributed training, through:
 ```bash

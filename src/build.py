@@ -1,13 +1,8 @@
 # This script is provided by authors of FontDiffuser.
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
-from src import (
-    ContentEncoder,
-    StyleEncoder,
-    UNet,
-    SCR,
-    KFeatureExtractor,
-)
+
+from .modules import SCR, ContentEncoder, KFeatureExtractor, StyleEncoder, UNet
 
 
 def build_unet(args):

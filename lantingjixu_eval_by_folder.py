@@ -4,10 +4,12 @@
 # For our current evaluation process, check lantingjixu_eval.py instead, which also generates a test profile and runs sampling.
 
 from pathlib import Path
+
 import torch
-from src.metrics.font_metrics import FontMetrics
 import torchvision.transforms as TF
 from PIL import Image
+
+from src.metrics.font_metrics import FontMetrics
 
 IMAGE_EXTENSIONS = {"bmp", "jpg", "jpeg", "pgm", "png", "ppm", "tif", "tiff", "webp"}
 

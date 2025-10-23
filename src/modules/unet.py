@@ -6,14 +6,10 @@ from typing import Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
-
+from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
-from diffusers.configuration_utils import (
-    ConfigMixin,
-    register_to_config,
-)
-from diffusers.utils.outputs import BaseOutput
 from diffusers.utils import logging
+from diffusers.utils.outputs import BaseOutput
 
 from .embeddings import TimestepEmbedding, Timesteps
 from .unet_blocks import (
@@ -23,7 +19,6 @@ from .unet_blocks import (
     get_down_block,
     get_up_block,
 )
-
 
 logger = logging.get_logger(__name__)
 

@@ -1,17 +1,17 @@
 # This script is provided by authors of FontDiffuser.
 # This script contains utility functions used in the FontDiffuser scripts.
 
-import cv2
-import yaml
 import copy
+
+import cv2
+import numpy as np
 import pygame
 import pygame.freetype
-import numpy as np
-from PIL import Image
-from fontTools.ttLib import TTFont
-
 import torch
 import torchvision.transforms as transforms
+import yaml
+from fontTools.ttLib import TTFont
+from PIL import Image
 
 
 def save_args_to_yaml(args, output_file):
@@ -23,14 +23,32 @@ def save_args_to_yaml(args, output_file):
         yaml.dump(args_dict, yaml_file, default_flow_style=False)
 
 
-def save_single_image(save_dir, image):
+def get_file_name(character):
+    assert (
+        isinstance(character, str) or character is None
+    ), "Character must be a string or None"
 
-    save_path = f"{save_dir}/out_single.png"
+    if character is None:
+        return "out"
+    if character.isspace():
+        return "empty"
+    return character
+
+
+def save_single_image(save_dir, image, character):
+    file_name = get_file_name(character)
+    save_path = f"{save_dir}/{file_name}.png"
     image.save(save_path)
 
 
 def save_image_with_content_style(
-    save_dir, image, content_image_pil, content_image_path, style_image_path, resolution
+    save_dir,
+    image,
+    character,
+    content_image_pil,
+    content_image_path,
+    style_image_path,
+    resolution,
 ):
 
     new_image = Image.new("RGB", (resolution * 3, resolution))
@@ -52,7 +70,8 @@ def save_image_with_content_style(
     # new_image.paste(style_image, (resolution, 0))
     new_image.paste(image, (resolution * 2, 0))
 
-    save_path = f"{save_dir}/out_with_cs.png"
+    file_name = get_file_name(character)
+    save_path = f"{save_dir}/{file_name}_with_cs.png"
     new_image.save(save_path)
 
 
