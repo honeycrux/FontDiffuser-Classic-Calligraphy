@@ -1,10 +1,10 @@
 # This script is provided by the FYP24 project group.
 # This is the K-Feature Extractor unit.
-# Any implementation can be used by changing the unit_used in class KFeatureExtractor.
+# Specific implementations can be chosen by changing the unit_used in class KFeatureExtractor.
 # There are 3 implementations of the K-Feature Extractor unit:
-# 1. KFeatureExtractorUnit_Conv (default): A convolutional implementation.
-# 2. KFeatureExtractorUnit_FC: A fully connected implementation.
-# 3. KFeatureExtractorUnit_X1: A heavier-weight hybrid implementation that combines convolutional and fully connected layers.
+# 1. KFeatureExtractorUnit_CFS (default): A convolutional implementation.
+# 2. KFeatureExtractorUnit_FCFS: A fully connected implementation.
+# 3. KFeatureExtractorUnit_HFS: A hybrid implementation that combines convolutional and fully connected layers. Has more parameters than the other two.
 
 import torch
 import torch.nn as nn
@@ -17,9 +17,9 @@ content_feature_extractor_4_input_singleton = (256, 12, 12)
 content_feature_extractor_5_input_singleton = (256, 12, 12)
 
 
-class KFeatureExtractorUnit_Conv(nn.Module):
+class KFeatureExtractorUnit_CFS(nn.Module):
     def __init__(self, K, singleton_shape):
-        super(KFeatureExtractorUnit_Conv, self).__init__()
+        super(KFeatureExtractorUnit_CFS, self).__init__()
 
         # self.K = K
         # self.singleton_shape = singleton_shape
@@ -46,9 +46,9 @@ class KFeatureExtractorUnit_Conv(nn.Module):
         return x
 
 
-class KFeatureExtractorUnit_FC(nn.Module):
+class KFeatureExtractorUnit_FCFS(nn.Module):
     def __init__(self, K, singleton_shape):
-        super(KFeatureExtractorUnit_FC, self).__init__()
+        super(KFeatureExtractorUnit_FCFS, self).__init__()
 
         # self.K = K
         # self.singleton_shape = singleton_shape
@@ -74,9 +74,9 @@ class KFeatureExtractorUnit_FC(nn.Module):
         return x
 
 
-class KFeatureExtractorUnit_X1(nn.Module):
+class KFeatureExtractorUnit_HFS(nn.Module):
     def __init__(self, K, singleton_shape):
-        super(KFeatureExtractorUnit_X1, self).__init__()
+        super(KFeatureExtractorUnit_HFS, self).__init__()
 
         # self.K = K
         # self.singleton_shape = singleton_shape
@@ -136,7 +136,9 @@ class KFeatureExtractor(nn.Module):
     def __init__(self, K):
         super(KFeatureExtractor, self).__init__()
 
-        unit_used = KFeatureExtractorUnit_Conv
+        unit_used = KFeatureExtractorUnit_CFS
+        # unit_used = KFeatureExtractorUnit_FCFS
+        # unit_used = KFeatureExtractorUnit_HFS
 
         self.style_feature_extractor = unit_used(
             K=K, singleton_shape=style_feature_extractor_input_singleton

@@ -62,7 +62,7 @@ def main():
     args = get_args()
 
     load_basic_models = args.training_phase >= 2
-    freeze_basic_models = False
+    freeze_basic_models = args.training_phase >= 3
 
     logging_dir = f"{args.output_dir}/{args.logging_dir}"
 
