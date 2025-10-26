@@ -1,17 +1,15 @@
 # This script is provided by authors of FontDiffuser.
 # This is the driver code for the Gradio app for FontDiffuser. It provides a web interface for users to interact with FontDiffuser.
 
-from typing import Optional
-import torch
 import functools
 import random
+from typing import Optional
+
 import gradio as gr
+import torch
 from PIL import Image
-from sample import (
-    arg_parse,
-    sampling,
-    load_fontdiffuser_pipeline,
-)
+
+from sample import arg_parse, load_fontdiffuser_pipeline, sampling
 
 
 def load_essential_args(
@@ -39,8 +37,8 @@ def run_fontdiffuser_demo_mode(
     source_image: Optional[Image.Image],
     character: str,
     reference_image: Image.Image,
-    sampling_step: int = 20,
-    batch_size: int = 1,
+    num_inference_steps: int = 20,
+    guidance_scale: float = 7.5,
     seed: Optional[int] = None,
 ):
     args.method = "multistep"
@@ -51,8 +49,8 @@ def run_fontdiffuser_demo_mode(
     args.ttf_path = ttf_path
     args.character_input = False if source_image is not None else True
     args.content_character = character
-    args.sampling_step = sampling_step
-    args.batch_size = batch_size
+    args.num_inference_steps = num_inference_steps
+    args.guidance_scale = guidance_scale
 
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
 
@@ -136,7 +134,7 @@ def main():
                         type="pil",
                     )
 
-                sampling_step = gr.Slider(
+                num_inference_steps = gr.Slider(
                     20,
                     50,
                     value=20,
@@ -151,14 +149,6 @@ def main():
                     step=0.5,
                     label="Scale of Classifier-free Guidance",
                     info="The scale used for classifier-free guidance sampling",
-                )
-                batch_size = gr.Slider(
-                    1,
-                    4,
-                    value=1,
-                    step=1,
-                    label="Batch Size",
-                    info="The number of images to be sampled.",
                 )
 
                 FontDiffuser = gr.Button("Run FontDiffuser")
@@ -245,8 +235,8 @@ def main():
                 source_image,
                 character,
                 reference_image,
-                sampling_step,
-                batch_size,
+                num_inference_steps,
+                guidance_scale,
             ],
             outputs=fontdiffuser_output_image,
         )

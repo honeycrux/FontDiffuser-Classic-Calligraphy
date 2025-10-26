@@ -1,7 +1,8 @@
 # This script is provided by authors of FontDiffuser.
 
-import torch
 import math
+
+import torch
 
 
 class NoiseScheduleVP:

@@ -1,8 +1,12 @@
+# This script is provided by the FYP24 project group.
+# This is the K-Feature Extractor unit with style and content attention.
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.modules.style_attention import StyleAttentionModel
+
 from src.modules.content_attention import ContentAttentionModel
+from src.modules.style_attention import StyleAttentionModel
 
 style_feature_extractor_input_singleton = (1024, 3, 3)
 content_feature_extractor_1_input_singleton = (3, 96, 96)

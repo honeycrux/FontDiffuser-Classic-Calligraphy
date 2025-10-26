@@ -1,3 +1,6 @@
+# This script is provided by the FYP24 project group.
+# This is the Style Attention Model used in K-Feature Extractor.
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

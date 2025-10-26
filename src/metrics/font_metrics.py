@@ -1,7 +1,8 @@
 # This script is provided by the FYP24 project group.
 # This script calculates all of the metrics for a given batch of images.
 
-from torcheval.metrics import StructuralSimilarity, FrechetInceptionDistance
+from torcheval.metrics import FrechetInceptionDistance, StructuralSimilarity
+
 from src.metrics.mean_absolute_error import MeanAbsoluteError
 from src.metrics.perceptual_similarity import PerceptualSimilarity
 
