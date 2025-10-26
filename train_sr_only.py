@@ -2,34 +2,25 @@
 # This script is for training the style reconstructor, without the other parts.
 # For usage, also refer to scripts/train_phase_*.sh.
 
-import os
-import math
-import time
 import logging
-from tqdm.auto import tqdm
+import math
+import os
+import time
 
 import torch
-import torch.utils.data
 import torch.nn.functional as F
-
+import torch.utils.data
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
 from diffusers.optimization import get_scheduler
+from tqdm.auto import tqdm
 
-from dataset.font_dataset import FontDataset
-from dataset.collate_fn import CollateFN
 from configs.fontdiffuser import get_parser
-from src import (
-    build_style_encoder,
-    build_content_encoder,
-    build_style_reconstructor,
-)
-from utils import (
-    save_args_to_yaml,
-    get_transform_function,
-)
-
+from dataset.collate_fn import CollateFN
+from dataset.font_dataset import FontDataset
+from src import build_content_encoder, build_style_encoder, build_style_reconstructor
+from utils import get_transform_function, save_args_to_yaml
 
 logger = get_logger(__name__)
 

@@ -5,15 +5,11 @@ import functools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import init
-from torch.nn import Parameter as P
-from torch.nn.utils.spectral_norm import spectral_norm
-
+from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
-from diffusers.configuration_utils import (
-    ConfigMixin,
-    register_to_config,
-)
+from torch.nn import Parameter as P
+from torch.nn import init
+from torch.nn.utils.spectral_norm import spectral_norm
 
 
 def proj(x, y):

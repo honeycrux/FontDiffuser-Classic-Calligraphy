@@ -2,7 +2,8 @@
 
 import torch
 import torch.nn as nn
-from .attention_for_reconstructor import SpatialTransformer, ChannelAttnBlock
+
+from .attention_for_reconstructor import ChannelAttnBlock, SpatialTransformer
 
 
 class StyleReconstructor(nn.Module):
