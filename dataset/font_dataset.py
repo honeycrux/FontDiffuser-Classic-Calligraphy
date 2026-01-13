@@ -1,13 +1,13 @@
 # This script is provided by authors of FontDiffuser.
 # This script defines the dataset for training of FontDiffuser.
 
-from pathlib import Path
-import random
-from PIL import Image
-from collections import defaultdict
 import hashlib
+import random
+from collections import defaultdict
+from pathlib import Path
 
 import torch
+from PIL import Image
 from torch.utils.data import Dataset
 
 from utils import get_transform_function
@@ -66,9 +66,11 @@ class FontDataset(Dataset):
 
     def get_path(self):
         # Find target image list style to images map
-        self.target_images: list[str] = []
-        self.content_to_images: dict[str, str] = {}
-        self.style_to_images: dict[str, defaultdict[str, list[str]]] = {}
+        self.target_image_path_list: list[str] = []
+        self.char_to_content_image_path: dict[str, str] = {}
+        self.style_to_char_to_style_image_path_list: dict[
+            str, defaultdict[str, list[str]]
+        ] = {}
         content_image_dir = Path(self.root) / self.phase / "ContentImage"
         target_image_dir = Path(self.root) / self.phase / "TargetImage"
         message_prefix = (
@@ -89,25 +91,32 @@ class FontDataset(Dataset):
                 ):
                     continue
                 img_path = img.as_posix()
-                if image_char not in self.content_to_images:
+                if image_char not in self.char_to_content_image_path:
                     content_path = content_image_dir / f"{image_char}.{image_suffix}"
                     assert (
                         content_path.exists()
                     ), f"{message_prefix} Content image {image_char} required by style {image_style} not found in {content_path}"
-                    self.content_to_images[image_char] = content_path.as_posix()
+                    self.char_to_content_image_path[image_char] = (
+                        content_path.as_posix()
+                    )
                 assert (
                     style.stem == image_style
                 ), f"{message_prefix} Style mismatch: Expected {style.stem}, but got {image_style} in {img_path}"
                 assert (
                     image_suffix == img.suffix[1:]
                 ), f"{message_prefix} Image suffix mismatch: Expected {image_suffix}, but got {img.suffix} in {img_path}"
-                self.target_images.append(img_path)
+                self.target_image_path_list.append(img_path)
                 style_related_images[image_char].append(img_path)
-            self.style_to_images[style.stem] = style_related_images
+            self.style_to_char_to_style_image_path_list[style.stem] = (
+                style_related_images
+            )
 
         # Check the number of style images available at every situation
         required_style_images = self.k_shot
-        for style, char_images_map in self.style_to_images.items():
+        for (
+            style,
+            char_images_map,
+        ) in self.style_to_char_to_style_image_path_list.items():
             style_images_total = sum(
                 [len(imlist) for imlist in char_images_map.values()]
             )
@@ -118,7 +127,7 @@ class FontDataset(Dataset):
                 ), f"{message_prefix} When simulating training with style {style} and char {char}, the number of style images should be at least {required_style_images}, but got {style_candidates_total} style image candidates."
 
         # SCR: Check the number of styles
-        num_styles = len(self.style_to_images)
+        num_styles = len(self.style_to_char_to_style_image_path_list)
         if self.use_scr:
             assert (
                 num_styles >= self.num_neg + 1
@@ -126,9 +135,12 @@ class FontDataset(Dataset):
 
         # SCR: Check if dataset is balanced (all styles have the same set of characters)
         if self.use_scr:
-            universe_char_set = set(self.content_to_images.keys())
+            universe_char_set = set(self.char_to_content_image_path.keys())
             empty_set = set()
-            for style, char_images_map in self.style_to_images.items():
+            for (
+                style,
+                char_images_map,
+            ) in self.style_to_char_to_style_image_path_list.items():
                 style_char_set = set(char_images_map.keys())
                 missing_set = universe_char_set - style_char_set
                 if missing_set != empty_set:
@@ -137,37 +149,53 @@ class FontDataset(Dataset):
                     )
 
     def __getitem__(self, index):
-        target_image_path = Path(self.target_images[index])
+        target_image_path = Path(self.target_image_path_list[index])
         target_image_name = target_image_path.stem
 
         # Get target image components
         style, content = parse_target_image_name(target_image_name)
 
         # Read content image
-        content_image_path = self.content_to_images[content]
+        content_image_path = self.char_to_content_image_path[content]
         content_image = Image.open(content_image_path).convert("RGB")
         content_image = self.transforms[0](content_image)
 
         # Random sample used for style image
-        char_images_map = self.style_to_images[style].copy()
+        char_images_map = self.style_to_char_to_style_image_path_list[style].copy()
         char_images_map.pop(content)
         candidate_style_images = [
-            im for imlist in char_images_map.values() for im in imlist
+            {"char": char, "style_image_path": style_image}
+            for char, image_list in char_images_map.items()
+            for style_image in image_list
         ]
 
         # Get K style images of the same style
         num_style_images = len(candidate_style_images)
         # Choose style images
-        style_image_paths = random.sample(
+        chosen_style_images = random.sample(
             candidate_style_images, min([self.k_shot, num_style_images])
         )
         # Load style images
         style_images = [
-            Image.open(style_image_path).convert("RGB")
-            for style_image_path in style_image_paths
+            Image.open(style_image_info["style_image_path"]).convert("RGB")
+            for style_image_info in chosen_style_images
         ]
         style_images = [self.transforms[1](style_image) for style_image in style_images]
         style_images = torch.stack(style_images, dim=0)
+        # Load style images in computer font
+        style_images_in_computer_font = [
+            Image.open(
+                self.char_to_content_image_path[style_image_info["char"]]
+            ).convert("RGB")
+            for style_image_info in chosen_style_images
+        ]
+        style_images_in_computer_font = [
+            self.transforms[1](style_image)
+            for style_image in style_images_in_computer_font
+        ]
+        style_images_in_computer_font = torch.stack(
+            style_images_in_computer_font, dim=0
+        )
 
         # Read target image
         target_image = Image.open(target_image_path).convert("RGB")
@@ -177,6 +205,7 @@ class FontDataset(Dataset):
         sample = {
             "content_image": content_image,
             "style_image": style_images,
+            "style_image_in_computer_font": style_images_in_computer_font,
             "target_image": target_image,
             "target_image_path": target_image_path.as_posix(),
             "nonorm_target_image": nonorm_target_image,
@@ -184,12 +213,14 @@ class FontDataset(Dataset):
 
         if self.use_scr:
             # Get neg image from the different style of the same content
-            style_list = list(self.style_to_images.keys())
+            style_list = list(self.style_to_char_to_style_image_path_list.keys())
             style_list.remove(style)
             chosen_neg_paths = []
             chosen_styles = random.sample(style_list, self.num_neg)
             chosen_neg_paths = [
-                random.choice(self.style_to_images[chosen_style][content])
+                random.choice(
+                    self.style_to_char_to_style_image_path_list[chosen_style][content]
+                )
                 for chosen_style in chosen_styles
             ]
 
@@ -212,4 +243,4 @@ class FontDataset(Dataset):
         return sample
 
     def __len__(self):
-        return len(self.target_images)
+        return len(self.target_image_path_list)

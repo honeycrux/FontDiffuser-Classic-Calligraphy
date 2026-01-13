@@ -24,8 +24,8 @@ from src import (
     FontDiffuserModel,
     build_content_encoder,
     build_ddpm_scheduler,
-    build_k_feature_extractor,
     build_scr,
+    build_style_absorption,
     build_style_encoder,
     build_unet,
 )
@@ -96,7 +96,7 @@ def main():
     unet = build_unet(args=args)
     style_encoder = build_style_encoder(args=args)
     content_encoder = build_content_encoder(args=args)
-    k_feature_extractor = build_k_feature_extractor(args=args)
+    style_absorption = build_style_absorption(args=args)
     noise_scheduler = build_ddpm_scheduler(args)
 
     if load_basic_models and not args.resume_training:
@@ -110,15 +110,12 @@ def main():
         content_encoder.load_state_dict(
             torch.load(f"{args.last_phase_ckpt_dir}/content_encoder.pth")
         )
-        k_feature_extractor.load_state_dict(
-            torch.load(f"{args.last_phase_ckpt_dir}/k_feature_extractor.pth")
-        )
 
     model = FontDiffuserModel(
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder,
-        k_feature_extractor=k_feature_extractor,
+        style_absorption=style_absorption,
     )
 
     # Build content perceptaual Loss
@@ -276,40 +273,45 @@ def main():
     )
 
     def compute_loss(samples):
-        content_images = samples["content_image"]
-        style_images = samples["style_image"]
-        target_images = samples["target_image"]
-        nonorm_target_images = samples["nonorm_target_image"]
+        content_image_batch = samples["content_image"]
+        style_images_batch = samples["style_image"]
+        style_images_in_computer_font_batch = samples["style_image_in_computer_font"]
+        target_image_batch = samples["target_image"]
+        nonorm_target_image_batch = samples["nonorm_target_image"]
 
         # Sample noise that we'll add to the samples
-        noise = torch.randn_like(target_images)
-        bsz = target_images.shape[0]
+        noise = torch.randn_like(target_image_batch)
+        bsz = target_image_batch.shape[0]
         # Sample a random timestep for each image
         timesteps = torch.randint(
             0,
             noise_scheduler.config["num_train_timesteps"],
             (bsz,),
-            device=target_images.device,
+            device=target_image_batch.device,
         )
         timesteps = timesteps.long()
 
         # Add noise to the target_images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
-        noisy_target_images = noise_scheduler.add_noise(target_images, noise, timesteps)
+        noisy_target_images = noise_scheduler.add_noise(
+            target_image_batch, noise, timesteps
+        )
 
         # Classifier-free training strategy
         context_mask = torch.bernoulli(torch.zeros(bsz) + args.drop_prob)
         for i, mask_value in enumerate(context_mask):
             if mask_value == 1:
-                content_images[i, :, :, :] = 1
-                style_images[i, :, :, :] = 1
+                content_image_batch[i, :, :, :] = 1
+                style_images_batch[i, :, :, :] = 1
+                style_images_in_computer_font_batch[i, :, :, :] = 1
 
         # Predict the noise residual and compute loss
         noise_pred, offset_out_sum = model(
             x_t=noisy_target_images,
             timesteps=timesteps,
-            style_images=style_images,
-            content_images=content_images,
+            style_images_batch=style_images_batch,
+            style_images_in_computer_font_batch=style_images_in_computer_font_batch,
+            content_image_batch=content_image_batch,
             content_encoder_downsample_size=args.content_encoder_downsample_size,
         )
         diff_loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
@@ -324,11 +326,11 @@ def main():
         )
         pred_original_sample = reNormalize_img(pred_original_sample_norm)
         norm_pred_ori = normalize_mean_std(pred_original_sample)
-        norm_target_ori = normalize_mean_std(nonorm_target_images)
+        norm_target_ori = normalize_mean_std(nonorm_target_image_batch)
         percep_loss = perceptual_loss.calculate_loss(
             generated_images=norm_pred_ori,
             target_images=norm_target_ori,
-            device=target_images.device,
+            device=target_image_batch.device,
         )
 
         loss = (
@@ -343,7 +345,7 @@ def main():
             # sc loss
             sample_style_embeddings, pos_style_embeddings, neg_style_embeddings = scr(
                 pred_original_sample_norm,
-                target_images,
+                target_image_batch,
                 neg_images,
                 nce_layers=args.nce_layers,
             )
@@ -475,8 +477,8 @@ def main():
                     f"{save_dir}/content_encoder.pth",
                 )
                 torch.save(
-                    get_submodel(model, "k_feature_extractor").state_dict(),
-                    f"{save_dir}/k_feature_extractor.pth",
+                    get_submodel(model, "style_absorption").state_dict(),
+                    f"{save_dir}/style_absorption.pth",
                 )
                 torch.save(
                     {

@@ -514,7 +514,10 @@ class ContentEncoder(ModelMixin, ConfigMixin):
                 self.param_count += sum(
                     [p.data.nelement() for p in module.parameters()]
                 )
-        print("Param count for D" "s initialized parameters: %d" % self.param_count)
+        print(
+            "Param count for content encoder's initialized parameters: %d"
+            % self.param_count
+        )
 
     def forward(self, x):
         h = x

@@ -19,7 +19,7 @@ from src import (
     FontDiffuserModelDPM,
     build_content_encoder,
     build_ddpm_scheduler,
-    build_k_feature_extractor,
+    build_style_absorption,
     build_style_encoder,
     build_unet,
 )
@@ -32,6 +32,144 @@ from utils import (
     save_single_image,
     ttf2im,
 )
+
+
+class SourceImage:
+    image: Image.Image
+
+    def __init__(self, image):
+        assert isinstance(image, Image.Image), "The image should be PIL.Image.Image."
+        self.image = image
+
+    @staticmethod
+    def from_args(args) -> "SourceImage":
+        if args.character_input:
+            assert isinstance(
+                args.content_character, str
+            ), "The content_character should be provided when character_input is True."
+            assert isinstance(
+                args.ttf_path, str
+            ), "The ttf_path should be provided when character_input is True."
+            assert is_char_in_font(
+                font_path=args.ttf_path, char=args.content_character
+            ), "The content_character is not in the ttf. \
+                    Please change the content_character or you can change the ttf."
+            font = load_ttf(ttf_path=args.ttf_path)
+            content_image = ttf2im(font=font, char=args.content_character)
+        else:
+            assert isinstance(
+                args.content_image_path, str
+            ), "The content_image_path should be str."
+            content_image = Image.open(args.content_image_path).convert("RGB")
+
+        return SourceImage(image=content_image)
+
+
+class ReferenceImage:
+    actual_image: Image.Image
+    computer_font_image_or_character: Union[Image.Image, str]
+
+    def __init__(
+        self,
+        actual_image,
+        computer_font_image_or_character,
+    ):
+        assert isinstance(
+            actual_image, Image.Image
+        ), "The actual_image should be PIL.Image.Image."
+        assert isinstance(
+            computer_font_image_or_character, (Image.Image, str)
+        ), "The computer_font_image_or_character should be PIL.Image.Image or str."
+        self.actual_image = actual_image
+        if isinstance(computer_font_image_or_character, str):
+            assert (
+                len(computer_font_image_or_character) == 1
+            ), f"If computer_font_image_or_character is str, it should be a single character string, \
+                but got {computer_font_image_or_character}."
+        self.computer_font_image_or_character = computer_font_image_or_character
+
+    def get_computer_font_image(
+        self, computer_font_dir=None, ttf_path=None
+    ) -> Image.Image:
+        # Case 1: already provided computer font image
+        if isinstance(self.computer_font_image_or_character, Image.Image):
+            return self.computer_font_image_or_character
+
+        character = self.computer_font_image_or_character
+
+        # Case 2: computer font image found in provided directory
+        if isinstance(computer_font_dir, str):
+            computer_font_path = Path(computer_font_dir) / f"{character}.png"
+            if computer_font_path.exists():
+                computer_font_image = Image.open(computer_font_path).convert("RGB")
+                return computer_font_image
+
+        # Case 3: generate computer font image from ttf
+        assert isinstance(
+            ttf_path, str
+        ), "The ttf_path should be provided when computer_font_image needs to be generated."
+        assert is_char_in_font(
+            font_path=ttf_path, char=character
+        ), f"The character {character} is not in the ttf. \
+                Please change the character or you can change the ttf."
+
+        font = load_ttf(ttf_path=ttf_path)
+        computer_font_image = ttf2im(font=font, char=character)
+        assert isinstance(
+            computer_font_image, Image.Image
+        ), f"The computer font image generation for {character} failed."
+
+        return computer_font_image
+
+    @staticmethod
+    def from_image_path(actual_image_path: Path) -> "ReferenceImage":
+        # Image File Name Format: style+character[+optional-suffix] or character.png
+
+        actual_image = Image.open(actual_image_path).convert("RGB")
+
+        image_name = actual_image_path.stem
+        if "+" in image_name:
+            target_components = image_name.split("+")
+            character = target_components[1]
+        else:
+            character = image_name
+
+        return ReferenceImage(
+            actual_image=actual_image,
+            computer_font_image_or_character=character,
+        )
+
+
+class ReferenceImageList:
+    images: list[ReferenceImage]
+
+    def __init__(self, images: list[ReferenceImage], k_shot):
+        assert all(
+            [isinstance(image, ReferenceImage) for image in images]
+        ), "All elements in images should be ReferenceImage."
+        assert isinstance(k_shot, int), "k_shot should be an integer."
+        self.images = random.sample(images, k=min([k_shot, len(images)]))
+
+    @staticmethod
+    def from_args(args) -> "ReferenceImageList":
+        assert isinstance(
+            args.style_image_path, str
+        ), "The style_image_path should be str."
+        style_images_dir = Path(args.style_image_path)
+        available_style_paths: list[Path] = []
+        for path in style_images_dir.iterdir():
+            if path.is_file():
+                available_style_paths.append(path)
+        num_style_images = len(available_style_paths)
+        # Sample k_shot style images here to save memory, since ReferenceImage loads all images into memory.
+        assert isinstance(args.k_shot, int), "args.k_shot should be an integer."
+        style_image_paths = random.sample(
+            available_style_paths, k=min([args.k_shot, num_style_images])
+        )
+        style_images = [
+            ReferenceImage.from_image_path(path) for path in style_image_paths
+        ]
+        return ReferenceImageList(images=style_images, k_shot=args.k_shot)
 
 
 def arg_parse():
@@ -50,6 +188,7 @@ def arg_parse():
     parser.add_argument("--content_character", type=str, default=None)
     parser.add_argument("--content_image_path", type=str, default=None)
     parser.add_argument("--style_image_path", type=str, default=None)
+    parser.add_argument("--computer_font_image_dir", type=str, default=None)
     parser.add_argument("--save_image", action="store_true")
     parser.add_argument(
         "--save_image_dir", type=str, default=None, help="The saving directory."
@@ -67,97 +206,36 @@ def arg_parse():
     return args
 
 
-def image_process_with_path(args) -> Union[None, tuple[Image.Image, list[Image.Image]]]:
-    content_image_path = args.content_image_path
-    style_image_path = args.style_image_path
-    content_character = args.content_character
-
-    if args.character_input:
-        assert isinstance(
-            content_character, str
-        ), "The content_character should be str."
-        if not (
-            args.ttf_path
-            and is_char_in_font(font_path=args.ttf_path, char=content_character)
-        ):
-            return None
-        font = load_ttf(ttf_path=args.ttf_path)
-        content_image = ttf2im(font=font, char=content_character)
-    else:
-        assert isinstance(
-            content_image_path, str
-        ), "The content_image_path should be str."
-        content_image = Image.open(content_image_path).convert("RGB")
-
-    assert isinstance(style_image_path, str), "The style_image_path should be str."
-    style_images_dir = Path(style_image_path)
-    style_images = []
-    available_style_paths = []
-    for path in style_images_dir.iterdir():
-        if path.is_file():
-            available_style_paths.append(path)
-    num_style_images = len(available_style_paths)
-    if num_style_images < args.k_shot:
-        print(
-            f"Warning: k_shot is set to {args.k_shot}, but got {num_style_images} style images."
-        )
-    style_image_paths = random.sample(
-        available_style_paths, k=min([args.k_shot, num_style_images])
-    )
-    style_images = [Image.open(path).convert("RGB") for path in style_image_paths]
-
-    assert isinstance(
-        content_image, Image.Image
-    ), "The content image should be PIL.Image.Image."
-    assert all(
-        [isinstance(style_image, Image.Image) for style_image in style_images]
-    ), "The style images should be PIL.Image.Image."
-
-    return content_image, style_images
-
-
-def image_process_with_image(
-    args, content_image, style_images
-) -> Union[None, tuple[Image.Image, list[Image.Image]]]:
-    content_character = args.content_character
-
-    if args.character_input:
-        assert isinstance(
-            content_character, str
-        ), "The content_character should be str."
-        if not (
-            args.ttf_path
-            and is_char_in_font(font_path=args.ttf_path, char=content_character)
-        ):
-            return None
-        font = load_ttf(ttf_path=args.ttf_path)
-        content_image = ttf2im(font=font, char=args.content_character)
-
-    assert isinstance(
-        content_image, Image.Image
-    ), "The content image should be PIL.Image.Image."
-    assert style_images is not None, "The style image should not be None."
-    assert all(
-        [isinstance(style_image, Image.Image) for style_image in style_images]
-    ), "The style images should be PIL.Image.Image."
-
-    return content_image, style_images
-
-
 def image_process(
-    args, content_image=None, style_images=None
-) -> Union[None, tuple[torch.Tensor, torch.Tensor, Image.Image, list[Image.Image]]]:
+    args,
+    content_image: Union[None, SourceImage] = None,
+    style_images: Union[None, ReferenceImageList] = None,
+) -> Union[
+    None,
+    tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        Image.Image,
+        list[Image.Image],
+        list[Image.Image],
+    ],
+]:
     ## Get PIL images
 
-    if not args.demo:
-        image_output = image_process_with_path(args)
-    else:
-        image_output = image_process_with_image(args, content_image, style_images)
+    if content_image is None:
+        content_image = SourceImage.from_args(args=args)
+    if style_images is None:
+        style_images = ReferenceImageList.from_args(args=args)
 
-    if image_output is None:
-        return None
-
-    content_image_pil, style_images_pil = image_output
+    content_image_pil = content_image.image
+    style_images_pil = [style_image.actual_image for style_image in style_images.images]
+    style_images_in_computer_font_pil = [
+        style_image.get_computer_font_image(
+            computer_font_dir=args.computer_font_image_dir, ttf_path=args.ttf_path
+        )
+        for style_image in style_images.images
+    ]
 
     ## Transform images to tensors
 
@@ -169,15 +247,31 @@ def image_process(
     )
 
     # Apply the transform to the content image
-    content_image = content_transforms(content_image_pil)[None, :]
+    transformed_content_image = content_transforms(content_image_pil)[None, :]
     # Apply the transform to the style image
-    style_images = [
+    transformed_style_images = [
         style_transforms(style_image)[None, :] for style_image in style_images_pil
     ]
     # Combine the style images into a single tensor
-    style_images = torch.cat(style_images, dim=0)
+    transformed_style_images = torch.cat(transformed_style_images, dim=0)
+    # Apply the transform to the style image in computer font
+    transformed_style_images_in_computer_font = [
+        style_transforms(style_image_in_computer_font)[None, :]
+        for style_image_in_computer_font in style_images_in_computer_font_pil
+    ]
+    # Combine the style images in computer font into a single tensor
+    transformed_style_images_in_computer_font = torch.cat(
+        transformed_style_images_in_computer_font, dim=0
+    )
 
-    return content_image, style_images, content_image_pil, style_images_pil
+    return (
+        transformed_content_image,
+        transformed_style_images,
+        transformed_style_images_in_computer_font,
+        content_image_pil,
+        style_images_pil,
+        style_images_in_computer_font_pil,
+    )
 
 
 def load_fontdiffuser_pipeline(args):
@@ -188,15 +282,15 @@ def load_fontdiffuser_pipeline(args):
     style_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/style_encoder.pth"))
     content_encoder = build_content_encoder(args=args)
     content_encoder.load_state_dict(torch.load(f"{args.ckpt_dir}/content_encoder.pth"))
-    k_feature_extractor = build_k_feature_extractor(args=args)
-    k_feature_extractor.load_state_dict(
-        torch.load(f"{args.ckpt_dir}/k_feature_extractor.pth")
+    style_absorption = build_style_absorption(args=args)
+    style_absorption.load_state_dict(
+        torch.load(f"{args.ckpt_dir}/style_absorption.pth")
     )
     model = FontDiffuserModelDPM(
         unet=unet,
         style_encoder=style_encoder,
         content_encoder=content_encoder,
-        k_feature_extractor=k_feature_extractor,
+        style_absorption=style_absorption,
     )
     model.to(args.device)
     print("Loaded the model state_dict successfully!")
@@ -241,16 +335,25 @@ def sampling(args, pipe, content_image=None, style_images=None):
         )
         return None
 
-    content_image, style_images, content_image_pil, _ = image_process_output
+    (
+        content_image,
+        style_images,
+        style_images_in_computer_font,
+        content_image_pil,
+        _,
+        _,
+    ) = image_process_output
 
     with torch.no_grad():
         content_image = content_image.to(args.device)
         style_images = style_images.to(args.device)
+        style_images_in_computer_font = style_images_in_computer_font.to(args.device)
         print(f"Sampling by DPM-Solver++ ......")
         start = time.time()
         images = pipe.generate(
             content_images=content_image,
             style_images=style_images,
+            style_images_in_computer_font=style_images_in_computer_font,
             batch_size=1,
             order=args.order,
             num_inference_step=args.num_inference_steps,

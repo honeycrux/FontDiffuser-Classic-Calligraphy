@@ -80,7 +80,10 @@ def get_parser():
         help="The channels of the fisrt layer output of content encoder.",
     )
     parser.add_argument(
-        "--k_shot", type=int, default=5, help="The maximum number of style images used."
+        "--k_shot",
+        type=int,
+        default=25,
+        help="The maximum number of style images used.",
     )
 
     # Training

@@ -4,6 +4,12 @@ import torch
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
 
+from src.modules.style_absorption import (
+    OutputImageEncodings,
+    ReferenceImageEncodings,
+    SourceImageEncodings,
+)
+
 
 class FontDiffuserModel(ModelMixin, ConfigMixin):
     """Forward function for FontDiffuser with content encoder \
@@ -16,47 +22,45 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
         unet,
         style_encoder,
         content_encoder,
-        k_feature_extractor,
+        style_absorption,
     ):
         super().__init__()
         self.unet = unet
         self.style_encoder = style_encoder
         self.content_encoder = content_encoder
-        self.k_feature_extractor = k_feature_extractor
+        self.style_absorption = style_absorption
 
     def forward(
         self,
         x_t,
         timesteps,
-        style_images,
-        content_images,
+        style_images_batch,
+        style_images_in_computer_font_batch,
+        content_image_batch,
         content_encoder_downsample_size,
     ):
         # Part I: Get style and content features from style and content images
 
-        ### Initialization
-        style_batch = style_images
-
         ### Get style feature from style image *list*
         # style_batch are in the shape of (N, K, C, H, W)
         style_style_feature_list = []
-        for style_batch_item in style_batch:
-            style_style_feature, _, _ = self.config["style_encoder"](style_batch_item)
+        for style_images in style_images_batch:
+            style_style_feature, _, _ = self.config["style_encoder"](style_images)
             style_style_feature_list.append(style_style_feature)
         style_style_feature_batch = torch.stack(style_style_feature_list)
 
         ### Get content feature from content image
         content_content_feture, content_content_residual_features = self.config[
             "content_encoder"
-        ](content_images)
+        ](content_image_batch)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
         style_content_residual_features_batch_transpose = []
-        for style_batch_item in style_batch:
+        for style_images in style_images_batch:
             style_content_feature, style_content_residual_features = self.config[
                 "content_encoder"
-            ](style_batch_item)
+            ](style_images)
             style_content_residual_features.append(style_content_feature)
             style_content_residual_features_batch_transpose.append(
                 style_content_residual_features
@@ -69,15 +73,53 @@ class FontDiffuserModel(ModelMixin, ConfigMixin):
             ]
             style_content_residual_features_batch.append(torch.stack(Fs_i))
 
+        ### Get computer font content feature of style image *list*
+        style_computer_font_content_residual_features_batch_transpose = []
+        for style_images in style_images_in_computer_font_batch:
+            (
+                style_computer_font_content_feature,
+                style_computer_font_content_residual_features,
+            ) = self.config["content_encoder"](style_images)
+            style_computer_font_content_residual_features.append(
+                style_computer_font_content_feature
+            )
+            style_computer_font_content_residual_features_batch_transpose.append(
+                style_computer_font_content_residual_features
+            )
+        style_computer_font_content_residual_features_batch = []
+        for fs_idx in range(
+            len(style_computer_font_content_residual_features_batch_transpose[0])
+        ):
+            # stack Fs_i columns
+            Fs_i = [
+                Ic_i[fs_idx]
+                for Ic_i in style_computer_font_content_residual_features_batch_transpose
+            ]
+            style_computer_font_content_residual_features_batch.append(
+                torch.stack(Fs_i)
+            )
+
+        ### Get neutral style encoding
+        neutral_style_encoding, _, _ = self.config["style_encoder"](
+            torch.ones_like(content_image_batch).to(self.device)
+        )
+
         # Part II: infer *one* style_style_feature from K of them
         # and infer *one* style_content_residual_features from K of them
 
-        style_style_feature, style_content_residual_features = self.config[
-            "k_feature_extractor"
-        ](
-            style_features=style_style_feature_batch,
-            content_features=style_content_residual_features_batch,
+        output_encodings: OutputImageEncodings = self.config["style_absorption"](
+            ReferenceImageEncodings(
+                computer_font_content_encodings=style_computer_font_content_residual_features_batch,
+                actual_content_encodings=style_content_residual_features_batch,
+                actual_style_encoding=style_style_feature_batch,
+            ),
+            SourceImageEncodings(
+                computer_font_content_encodings=content_content_residual_features,
+                neutral_style_encoding=neutral_style_encoding,
+            ),
         )
+        style_style_feature = output_encodings.style_encoding
+        style_content_residual_features = output_encodings.content_encodings
 
         # Part III: Do the rest and run the UNet
 
@@ -116,13 +158,13 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         unet,
         style_encoder,
         content_encoder,
-        k_feature_extractor,
+        style_absorption,
     ):
         super().__init__()
         self.unet = unet
         self.style_encoder = style_encoder
         self.content_encoder = content_encoder
-        self.k_feature_extractor = k_feature_extractor
+        self.style_absorption = style_absorption
 
     def forward(
         self,
@@ -132,26 +174,32 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
         content_encoder_downsample_size,
         version,
     ):
-        content_images = cond[0]
-        style_images = cond[1]
+        content_image_batch = cond[0]
+        style_images_batch = cond[1]
+        style_images_in_computer_font_batch = cond[2]
 
         # Part I: Get style and content features from style and content images
 
         ### Initialization
-        K = len(style_images) // 2
-        uncond_style_batch = style_images[0:K]
-        cond_style_batch = style_images[K:]
+        K = len(style_images_batch) // 2
+        uncond_style_batch = style_images_batch[0:K]
+        cond_style_batch = style_images_batch[K:]
+        uncond_style_computer_font_batch = style_images_in_computer_font_batch[0:K]
+        cond_style_computer_font_batch = style_images_in_computer_font_batch[K:]
 
         ### Get style feature from style image *list*
         uncond_style_style_feature, _, _ = self.config["style_encoder"](
             uncond_style_batch
         )
         cond_style_style_feature, _, _ = self.config["style_encoder"](cond_style_batch)
+        combined_style_style_feature = torch.stack(
+            [uncond_style_style_feature, cond_style_style_feature]
+        )
 
         ### Get content feature from content image
         content_content_feture, content_content_residual_features = self.config[
             "content_encoder"
-        ](content_images)
+        ](content_image_batch)
         content_content_residual_features.append(content_content_feture)
 
         ### Get content feature from style image *list*
@@ -163,13 +211,6 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             "content_encoder"
         ](cond_style_batch)
         cond_style_content_residual_features.append(cond_style_content_feature)
-
-        # Part II: infer *one* style_style_feature from K of them
-        # and infer *one* style_content_residual_features from K of them
-
-        combined_style_style_feature = torch.stack(
-            [uncond_style_style_feature, cond_style_style_feature]
-        )
         combined_style_content_residual_features = [
             torch.stack(
                 [
@@ -179,12 +220,53 @@ class FontDiffuserModelDPM(ModelMixin, ConfigMixin):
             )
             for i in range(len(uncond_style_content_residual_features))
         ]
-        style_style_feature, style_content_residual_features = self.config[
-            "k_feature_extractor"
-        ](
-            style_features=combined_style_style_feature,
-            content_features=combined_style_content_residual_features,
+
+        ### Get computer font content feature of style image *list*
+        (
+            uncond_style_computer_font_feature,
+            uncond_style_computer_font_residual_features,
+        ) = self.config["content_encoder"](uncond_style_computer_font_batch)
+        uncond_style_computer_font_residual_features.append(
+            uncond_style_computer_font_feature
         )
+        (
+            cond_style_computer_font_feature,
+            cond_style_computer_font_residual_features,
+        ) = self.config["content_encoder"](cond_style_computer_font_batch)
+        cond_style_computer_font_residual_features.append(
+            cond_style_computer_font_feature
+        )
+        combined_style_computer_font_residual_features = [
+            torch.stack(
+                [
+                    uncond_style_computer_font_residual_features[i],
+                    cond_style_computer_font_residual_features[i],
+                ]
+            )
+            for i in range(len(uncond_style_computer_font_residual_features))
+        ]
+
+        ### Get neutral style encoding
+        neutral_style_encoding, _, _ = self.config["style_encoder"](
+            torch.ones_like(content_image_batch).to(self.device)
+        )
+
+        # Part II: infer *one* style_style_feature from K of them
+        # and infer *one* style_content_residual_features from K of them
+
+        output_encodings: OutputImageEncodings = self.config["style_absorption"](
+            ReferenceImageEncodings(
+                computer_font_content_encodings=combined_style_computer_font_residual_features,
+                actual_content_encodings=combined_style_content_residual_features,
+                actual_style_encoding=combined_style_style_feature,
+            ),
+            SourceImageEncodings(
+                computer_font_content_encodings=content_content_residual_features,
+                neutral_style_encoding=neutral_style_encoding,
+            ),
+        )
+        style_style_feature = output_encodings.style_encoding
+        style_content_residual_features = output_encodings.content_encodings
 
         # Part III: Do the rest and run the UNet
 

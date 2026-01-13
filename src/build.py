@@ -2,7 +2,7 @@
 
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-from .modules import SCR, ContentEncoder, KFeatureExtractor, StyleEncoder, UNet
+from .modules import SCR, ContentEncoder, StyleAbsorption, StyleEncoder, UNet
 
 
 def build_unet(args):
@@ -38,7 +38,7 @@ def build_unet(args):
         content_start_channel=args.content_start_channel,
         reduction=32,
     )
-
+    print("Loaded UNet successfully!")
     return unet
 
 
@@ -46,7 +46,7 @@ def build_style_encoder(args):
     style_image_encoder = StyleEncoder(
         G_ch=args.style_start_channel, resolution=args.style_image_size[0]
     )
-    print("Get CG-GAN Style Encoder!")
+    print("Loaded CG-GAN Style Encoder successfully!")
     return style_image_encoder
 
 
@@ -54,7 +54,7 @@ def build_content_encoder(args):
     content_image_encoder = ContentEncoder(
         G_ch=args.content_start_channel, resolution=args.content_image_size[0]
     )
-    print("Get CG-GAN Content Encoder!")
+    print("Loaded CG-GAN Content Encoder successfully!")
     return content_image_encoder
 
 
@@ -62,15 +62,22 @@ def build_scr(args):
     scr = SCR(
         temperature=args.temperature, mode=args.mode, image_size=args.scr_image_size
     )
-    print("Loaded SCR module for supervision successfully!")
+    print("Loaded SCR Module for supervision successfully!")
     return scr
 
 
-def build_k_feature_extractor(args):
-    k_feature_extractor = KFeatureExtractor(
-        embed_size=1024, heads=8, ff_hidden_dim=2048, K=args.k_shot
+def build_style_absorption(args):
+    style_absorption = StyleAbsorption(
+        n_heads=8,
+        d_head=128,
+        decoder_query_dim=1024 * 6,
+        encoder_query_dim=1024 * 11,
+        n_layers=1,
+        gated_ff=True,
+        ff_mult=1,
     )
-    return k_feature_extractor
+    print("Loaded Style Absorption Module successfully!")
+    return style_absorption
 
 
 def build_ddpm_scheduler(args):
@@ -83,5 +90,4 @@ def build_ddpm_scheduler(args):
         variance_type="fixed_small",
         clip_sample=True,
     )
-    return ddpm_scheduler
     return ddpm_scheduler

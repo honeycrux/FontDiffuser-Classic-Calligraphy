@@ -57,6 +57,7 @@ def run_fontdiffuser(
     content_image_path: Optional[str],
     character: Optional[str],
     style_image_dir: str,
+    computer_font_image_dir: Optional[str],
     save_image_dir: str,
     ttf_path: str,
     num_inference_steps: int = 20,
@@ -73,6 +74,7 @@ def run_fontdiffuser(
     args.character_input = False if content_image_path is not None else True
     args.content_character = character
     args.style_image_path = style_image_dir
+    args.computer_font_image_dir = computer_font_image_dir
     args.save_image_dir = save_image_dir
     args.ttf_path = ttf_path
     args.num_inference_steps = num_inference_steps
@@ -139,6 +141,7 @@ def main():
                 content_image_path=None,
                 character=character,
                 style_image_dir=style_image_dir,
+                computer_font_image_dir=None,
                 save_image_dir=save_image_dir,
                 ttf_path=ttf_path,
                 seed=seed,
