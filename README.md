@@ -18,6 +18,7 @@ Few-shot methods:
 - `release/conv-few-shot`: The Convolution Few-shot method, which uses a combination of linear and convolutional layers on the features of style samples to infer encodings of a single style. There are multiple types of implementation that can be swapped in `k_feature_extractor.py`.
 - `release/attn-few-shot`: The Attention Few-shot method, which uses attention blocks on the features of style samples to infer encodings of single style.
 - `release/style-reconst`: The Style Reconstruction method, which uses attention blocks on the features of content image and style samples to infer one style encoding, and uses the multi-scale content encodings of a random style sample.
+- `release/style-absorption`: The Style Absorption method, which lets a transformer to use multi-scale content encodings of content image and style samples and the style encoding of style samples altogether to infer the final content and style encodings.
 
 This project contains the following code enhancements to support research:
 - Add the ability to enable validation split and the calculation of validation loss during training.
@@ -30,6 +31,7 @@ This project contains the following code enhancements to support research:
 
 ## 📅 Timeline
 
+- **June 2026**: Introduced the Style Absorption method.
 - **August 2025**: The data preparation scripts are released.
 - **March 2025**: Introduced the Style Reconstruction method.
 - **February 2025**: Introduced the Attention Few-shot method.
@@ -44,7 +46,7 @@ For the installation process, refer to [FontDiffuser#Installation](./FontDiffuse
 
 We specifically perform merges in the following way to propagate changes:
 - `main` commits, containing overall improvements, are merged into `release/naive-few-shot`.
-- `release/naive-few-shot` commits, containing overall improvements and adaptations to few-shot generation, are merged into `release/conv-few-shot`, `release/attn-few-shot`, and `release/stlye-reconst`.
+- `release/naive-few-shot` commits, containing overall improvements and adaptations to few-shot generation, are merged into `release/conv-few-shot`, `release/attn-few-shot`, `release/stlye-reconst`, and `release/style-absorption`.
 
 All branches contain the same readme documents but different model implementations.
 
@@ -61,6 +63,7 @@ Different branches contain the code to train and run different models. Each mode
 | Hybrid Few Shot (HFS) | `release/conv-few-shot` (see Choosing Conv Models section) |
 | Attention Few Shot (AFS) | `release/attn-few-shot` |
 | Style Reconstruction (SR) | `release/style-reconst` |
+| Style Absorption (SA) | `release/style-absorption` |
 
 Except for OFD and NFS, we provide `scripts/train-phase-3.sh` for additional training using OFD weights (resulting weights by the authors of FontDiffuser). OFS and NFS directly use OFD weights and do not have a phase-3 training script.
 
@@ -146,6 +149,14 @@ python lantingjixu_eval.py
 ```
 
 This evaluation script runs the whole process of our evaluation method. A directory D of ground truth images of a style is used, e.g. the Lantingji Xu characters. Let's say we want to run R rounds, the directory D has C characters, and the model uses K style images (reference images) for generation. The script detects and loads the specified test profile used for evaluation. If not exist, the script generates one. A test profile is a directory with R test files named `test_INDEX.yaml` where INDEX is a number starting at 0. Each test file consists of a seed (randomly chosen) and a list of C test cases, one for each character in D. Each test case then has 1 character image (the target image) and K style images (randomly sampled). The content image of a test case is generated from the character extracted from target image name. The script will then run the evaluation process according to the test profile, reporting the round performances, their mean and SD, and overall performance in the output `eval_results.yaml`. By using the same test profile, the same setting can be used to evaluate every model.
+
+Provided in Style Absorption only:
+
+```bash
+python eval_with_category.py
+```
+
+This evaluation script runs on a dataset prepared in a specific way. The dataset includes multiple font categories (font names are written as `category-name`) and data categories (SFSC, SFUC, UFSC, UFUC). Each test file, e.g. `ufuc-楷.yaml`, contains a seed and at most N tests for a combination of font category and data category (the N tests are split between ). For each test, a character with its actual image is chosen, then K style images are chosen. The script will then run the evaluation process according to the test profile, reporting the overall performance, performance by font category, and performance by data category in the output `eval_results.yaml`. By using the same test profile, the same setting can be used to evaluate every model.
 
 **(2) Evaluate generated images with ground truth images by specifying folders**
 ```bash
