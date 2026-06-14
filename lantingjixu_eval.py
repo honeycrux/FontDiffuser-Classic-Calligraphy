@@ -13,7 +13,7 @@ import torchvision.transforms as TF
 import yaml
 from PIL import Image
 
-from sample import arg_parse, load_fontdiffuser_pipeline, sampling
+from sample import ReferenceImage, ReferenceImageList, SourceImage, arg_parse, load_fontdiffuser_pipeline, sampling
 from src.metrics.font_metrics import FontMetrics
 
 
@@ -38,11 +38,11 @@ def load_essential_args(
 def run_fontdiffuser_demo_mode(
     args,
     pipe,
-    content_image: Optional[Image.Image],
+    content_image: Optional[SourceImage],
     character: Optional[str],
-    style_images: list[Image.Image],
+    style_images: Optional[ReferenceImageList],
     ttf_path: str,
-    use_few_shot: bool,
+    k_shot: int,
     num_inference_steps: int = 20,
     batch_size: int = 1,
     seed: Optional[int] = None,
@@ -56,21 +56,17 @@ def run_fontdiffuser_demo_mode(
     args.content_character = character
     args.num_inference_steps = num_inference_steps
     args.ttf_path = ttf_path
+    args.k_shot = k_shot
     args.batch_size = batch_size
 
     args.seed = seed if type(seed) is int else random.randint(0, 10000)
 
-    sampling_args = dict[str, Any](
+    out_image = sampling(
         args=args,
         pipe=pipe,
         content_image=content_image,
+        style_images=style_images,
     )
-    if use_few_shot:
-        sampling_args["style_images"] = style_images
-    else:
-        sampling_args["style_image"] = style_images[0]
-
-    out_image = sampling(**sampling_args)
     return out_image
 
 
@@ -185,19 +181,14 @@ def main():
 
     ### Evaluation configuration ###
 
-    # Few-shot or single-shot (depends on the current model used)
-    # Note: If use few-shot, the number of style images follows the num_style_image configuration in the test profile.
-    # If use single-shot, only the first style image will be used.
-    use_few_shot = True
-
     # Dataset location
-    dataset_dir = "data_lantingjixu/test/TargetImage/lan"
+    dataset_dir = "data_lantingjixu/all/TargetImage/lan"
 
     # Configure the test profile. If the profile does not exist, it will be created.
     # Note: If you use an existing profile, please make sure the dataset is the same as the one used to create the profile.
-    test_profile_dir = "outputs/test-profile-2025-02-01"
-    num_test_round = 10
-    num_style_image = 5
+    test_profile_dir = "outputs/test-profile-2-324-256-full-set-fast"
+    num_test_round = 2
+    num_style_image = 25
 
     # If the profile already exists, set this to True.
     # This prevents the evaluation process from regenerating the profile if you want reproducible results.
@@ -290,7 +281,7 @@ def main():
             ]
 
             character_image = Image.open(character_file).convert("RGB")
-            style_images = [Image.open(f).convert("RGB") for f in style_files]
+            reference_images = [ReferenceImage.from_image_path(f) for f in style_files]
 
             _, character = parse_target_image_name(character_file.stem)
 
@@ -299,9 +290,9 @@ def main():
                 pipe=pipe,
                 content_image=None,
                 character=character,
-                style_images=style_images,
+                style_images=ReferenceImageList(reference_images, num_style_image),
                 ttf_path=ttf_path,
-                use_few_shot=use_few_shot,
+                k_shot=num_style_image,
                 seed=seed,
             )
 

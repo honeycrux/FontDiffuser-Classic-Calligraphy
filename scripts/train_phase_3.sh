@@ -13,14 +13,10 @@ accelerate launch train.py \
     --channel_attn=True \
     --content_start_channel=64 \
     --style_start_channel=64 \
-    --train_batch_size=16 \
-    --use_validation \
-    --validation_factor=10 \
-    --validation_batch_size=128 \
-    --validation_interval=1000 \
+    --train_batch_size=12 \
     --perceptual_coefficient=0.01 \
     --offset_coefficient=0.5 \
-    --max_train_steps=30000 \
+    --max_train_steps=120000 \
     --ckpt_interval=5000 \
     --gradient_accumulation_steps=1 \
     --log_interval=50 \
